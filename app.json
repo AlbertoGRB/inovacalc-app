@@ -30,7 +30,14 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
-    ]
+      "expo-font",
+      "expo-image-picker"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "8e15b68f-2f4c-49b6-a98d-b29db3cb2408"
+      }
+    },
+    "owner": "albertogabriel"
   }
 }
