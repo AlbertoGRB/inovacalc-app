@@ -1,0 +1,48 @@
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY
+Starting project at C:\Users\Clínica Inovassie\Desktop\Calculadora Inovassie\calculadoraInovassie
+Starting Metro Bundler
+Error while reading cache, falling back to a full crawl:
+ Error: Unable to deserialize cloned data due to invalid or unsupported version.
+    at deserialize (node:v8:398:7)
+    at DiskCacheManager.read (C:\Users\Clínica Inovassie\Desktop\Calculadora Inovassie\calculadoraInovassie\node_modules\metro-file-map\src\cache\DiskCacheManager.js:60:33)
+    at FileMap.read (C:\Users\Clínica Inovassie\Desktop\Calculadora Inovassie\calculadoraInovassie\node_modules\metro-file-map\src\index.js:284:14)
+    at C:\Users\Clínica Inovassie\Desktop\Calculadora Inovassie\calculadoraInovassie\node_modules\metro-file-map\src\index.js:202:25
+    at DependencyGraph.ready (C:\Users\Clínica Inovassie\Desktop\Calculadora Inovassie\calculadoraInovassie\node_modules\metro\src\node-haste\DependencyGraph.js:88:5)
+The following packages should be updated for best compatibility with the installed expo version:
+  react-native-svg@15.15.4 - expected version: 15.12.1
+  react-native-worklets@0.8.3 - expected version: 0.5.1
+Your project may not work correctly until you install the expected versions of the packages.
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 85.8% (1485/7711)
+Android Bundled 5486ms node_modules\expo-router\entry.js (7991 modules)
+ LOG  [authStore] onAuthStateChange: INITIAL_SESSION true
+Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 197ms node_modules\expo-router\entry.js (1 module)
+ LOG  [authStore] onAuthStateChange: INITIAL_SESSION true
+Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 148ms node_modules\expo-router\entry.js (1 module)
+ LOG  [authStore] onAuthStateChange: INITIAL_SESSION true
+ LOG  [authStore] onAuthStateChange: SIGNED_OUT false
+ LOG  [authStore] onAuthStateChange: SIGNED_IN true
+Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 211ms node_modules\expo-router\entry.js (1 module)
+ LOG  [authStore] onAuthStateChange: INITIAL_SESSION true
+Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 210ms node_modules\expo-router\entry.js (1 module)
+ LOG  [authStore] onAuthStateChange: INITIAL_SESSION true
+Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 174ms node_modules\expo-router\entry.js (1 module)
+ LOG  [authStore] onAuthStateChange: INITIAL_SESSION true
+Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 202ms node_modules\expo-router\entry.js (1 module)
+ LOG  [authStore] onAuthStateChange: INITIAL_SESSION true
+Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 155ms node_modules\expo-router\entry.js (1 module)
+ LOG  [authStore] onAuthStateChange: INITIAL_SESSION true
+Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 251ms node_modules\expo-router\entry.js (1 module)
+ LOG  [authStore] onAuthStateChange: INITIAL_SESSION true
+ LOG  [authStore] onAuthStateChange: TOKEN_REFRESHED true
