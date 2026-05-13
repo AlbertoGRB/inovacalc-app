@@ -1,4 +1,9 @@
-﻿import { useMemo, useState } from 'react';
+/**
+ * Tela de listagem de empresas.
+ * Exibe erro diferenciado (rede vs servidor) e estado vazio.
+ */
+
+import { useMemo, useState } from 'react';
 import {
   View, Text, FlatList, ActivityIndicator, RefreshControl, TextInput, TouchableOpacity,
 } from 'react-native';
@@ -9,12 +14,13 @@ import { useCompanies } from '@/hooks/useCompanies';
 import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { colors, typography, radius } from '@/theme';
-import { Company } from '@/types/database';
+import type { Company } from '@/types/database';
 
-const RISK_VARIANT: Record<number, any> = {
+const RISK_VARIANT: Record<number, 'success' | 'info' | 'warning' | 'danger'> = {
   1: 'success',
   2: 'info',
   3: 'warning',
@@ -25,11 +31,11 @@ export default function CompaniesListScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
-  const { data, isLoading, refetch, isRefetching } = useCompanies();
+  const { data, isLoading, isError, error, refetch, isRefetching } = useCompanies();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return (data ?? []).filter(c =>
+    return (data ?? []).filter((c) =>
       !q ||
       c.company_name.toLowerCase().includes(q) ||
       c.cnpj?.replace(/\D/g, '').includes(q.replace(/\D/g, '')),
@@ -40,7 +46,7 @@ export default function CompaniesListScreen() {
     <View style={{ flex: 1, backgroundColor: colors.neutral.gray50 }}>
       <Header
         title="Empresas"
-        subtitle={`${filtered.length} cadastradas`}
+        subtitle={isError ? 'Erro ao carregar' : `${filtered.length} cadastradas`}
         onBack={() => router.back()}
       />
 
@@ -71,6 +77,18 @@ export default function CompaniesListScreen() {
       {isLoading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color={colors.primary[600]} />
+          <Text style={{
+            marginTop: 12,
+            fontFamily: 'Inter_400Regular',
+            fontSize: typography.sizes.sm,
+            color: colors.neutral.gray500,
+          }}>
+            Carregando empresas...
+          </Text>
+        </View>
+      ) : isError ? (
+        <View style={{ flex: 1 }}>
+          <ErrorState error={error} onRetry={refetch} />
         </View>
       ) : (
         <FlatList
@@ -86,7 +104,9 @@ export default function CompaniesListScreen() {
                 fontFamily: 'Inter_400Regular',
                 fontSize: typography.sizes.md,
                 color: colors.neutral.gray500,
-              }}>Nenhuma empresa encontrada.</Text>
+              }}>
+                {search ? 'Nenhuma empresa encontrada para esta busca.' : 'Nenhuma empresa cadastrada ainda.'}
+              </Text>
             </Card>
           }
           renderItem={({ item }: { item: Company }) => (
@@ -127,7 +147,7 @@ export default function CompaniesListScreen() {
         />
       )}
 
-      {/* FAB */}
+      {/* FAB — Nova empresa */}
       <TouchableOpacity
         onPress={() => router.push('/companies/new' as any)}
         activeOpacity={0.85}

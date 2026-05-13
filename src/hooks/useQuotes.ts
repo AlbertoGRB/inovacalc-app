@@ -1,49 +1,64 @@
+/**
+ * @module useQuotes
+ * Hook de dados de orçamentos com suporte offline + auth guard.
+ *
+ * Auth guard: a query só dispara quando initialized=true && session!=null.
+ * Merge local: orçamentos criados offline (outbox) aparecem na lista imediatamente.
+ */
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { Quote } from '@/types/database';
+import { logger } from '@/lib/logger';
+import { useAuthStore } from '@/stores/authStore';
 import { useOutbox } from '@/stores/outboxStore';
+import type { Quote } from '@/types/database';
+
+const TAG = 'useQuotes';
 
 export function useQuotes(status?: string) {
-  const ops = useOutbox(s => s.ops);
+  const { session, initialized } = useAuthStore();
+  const ops = useOutbox((s) => s.ops);
 
   const query = useQuery({
     queryKey: ['quotes', status],
+    enabled: initialized && !!session,
     queryFn: async () => {
+      logger.debug(TAG, `Buscando orçamentos${status ? ` status=${status}` : ''}...`);
       const controller = new AbortController();
-      const t = setTimeout(() => controller.abort(), 8000);
+      const timeout = setTimeout(() => controller.abort(), 10_000);
       try {
-        let query = supabase
+        let q = supabase
           .from('quotes')
           .select('*, companies(company_name, cnpj)')
           .order('created_at', { ascending: false })
           .abortSignal(controller.signal);
-        if (status) query = query.eq('status', status);
-        const { data, error } = await query;
-        if (error) throw error;
+
+        if (status) q = q.eq('status', status);
+
+        const { data, error } = await q;
+        if (error) {
+          logger.error(TAG, 'Erro ao buscar orçamentos', error.message);
+          throw error;
+        }
+        logger.info(TAG, `${data?.length ?? 0} orçamentos carregados`);
         return data as Quote[];
       } finally {
-        clearTimeout(t);
+        clearTimeout(timeout);
       }
     },
   });
 
-  // Merge orçamentos pendentes (criados offline) na lista
-  const pendingQuotes: Quote[] = ops
-    .filter(o => o.type === 'quote.create' && o.tempId)
-    .filter(o => !status || o.payload.status === status)
-    .map(o => ({
+  // Merge: orçamentos pendentes offline
+  const pendingQuotes: (Quote & { _pendingSync?: boolean })[] = ops
+    .filter((o) => o.type === 'quote.create' && o.tempId)
+    .filter((o) => !status || o.payload.status === status)
+    .map((o) => ({
       id: o.tempId!,
       ...(o.payload as any),
       _pendingSync: true,
-    } as Quote & { _pendingSync?: boolean }));
+    }));
 
-  const merged: Quote[] = [
-    ...pendingQuotes,
-    ...(query.data ?? []),
-  ];
+  const merged: Quote[] = [...pendingQuotes, ...(query.data ?? [])];
 
-  return {
-    ...query,
-    data: merged,
-  };
+  return { ...query, data: merged };
 }
