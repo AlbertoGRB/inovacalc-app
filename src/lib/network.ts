@@ -54,16 +54,20 @@ export async function checkConnectivity(): Promise<boolean> {
     logger.warn('network', 'EXPO_PUBLIC_SUPABASE_URL não configurado');
     return false;
   }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5_000);
   try {
     const res = await fetch(`${url}/rest/v1/`, {
       method: 'HEAD',
-      signal: AbortSignal.timeout(5_000),
+      signal: controller.signal,
     });
+    clearTimeout(timer);
     // 200 ou 401 = servidor respondeu = online
     const online = res.ok || res.status === 401;
     logger.debug('network', `checkConnectivity → ${res.status} | online=${online}`);
     return online;
   } catch (e: unknown) {
+    clearTimeout(timer);
     logger.debug('network', 'checkConnectivity → offline', e);
     return false;
   }
