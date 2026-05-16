@@ -12,7 +12,7 @@ export default function AppLayout() {
   return (
     <View style={{ flex: 1 }}>
       <NetworkBanner />
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack screenOptions={{ headerShown: false, animation: 'none' }} />
     </View>
   );
 }

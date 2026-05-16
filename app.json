@@ -40,7 +40,21 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-image-picker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O InovaCalc precisa acessar sua galeria para atualizar sua foto de perfil.",
+          "cameraPermission": "O InovaCalc precisa da câmera para tirar sua foto de perfil."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#042C53",
+          "sounds": []
+        }
+      ],
       "expo-updates"
     ],
     "extra": {

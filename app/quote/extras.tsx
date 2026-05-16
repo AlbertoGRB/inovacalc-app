@@ -10,15 +10,36 @@ import { Counter } from '@/components/ui/Counter';
 import { Toggle } from '@/components/ui/Toggle';
 import { Segmented } from '@/components/ui/Segmented';
 import { SectionLabel } from '@/components/ui/CategoryIcon';
-import { useQuoteDraft } from '@/stores/quoteDraftStore';
 import { colors, typography } from '@/theme';
 
 type Tab = 'sst' | 'desloc' | 'outros';
 
+type ExtrasState = {
+  respTecnica: boolean;
+  ruido: boolean;
+  insalubridade: boolean;
+  quantificacaoQty: number;
+  periculosidadeQty: number;
+  deslocamentoKm: number;
+  margin: number;
+};
+
+const DEFAULT_EXTRAS: ExtrasState = {
+  respTecnica: false,
+  ruido: false,
+  insalubridade: false,
+  quantificacaoQty: 0,
+  periculosidadeQty: 0,
+  deslocamentoKm: 0,
+  margin: 0,
+};
+
 export default function ExtrasScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { extras, setExtras } = useQuoteDraft();
+  const [extras, setExtrasState] = useState<ExtrasState>(DEFAULT_EXTRAS);
+  const setExtras = (patch: Partial<ExtrasState>) =>
+    setExtrasState((prev) => ({ ...prev, ...patch }));
   const [tab, setTab] = useState<Tab>('sst');
 
   return (
@@ -26,7 +47,7 @@ export default function ExtrasScreen() {
       <Header
         title="Serviços avulsos"
         subtitle="Adicione itens fora do plano"
-        step={{ current: 6, total: 6 }}
+        steps={6} currentStep={6}
         onBack={() => router.back()}
       />
 

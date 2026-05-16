@@ -21,43 +21,21 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { queryClient } from '@/lib/queryClient';
 import { useFonts, Inter_400Regular, Inter_500Medium } from '@expo-google-fonts/inter';
 import { useAuthStore } from '@/stores/authStore';
 import { flushOutbox } from '@/lib/sync';
 import { setupNetworkManager } from '@/lib/network';
+import { requestAppPermissions } from '@/lib/permissions';
 import { logger } from '@/lib/logger';
 
 // Configura integração de rede com TanStack Query antes de qualquer coisa
 setupNetworkManager();
 
 const TAG = 'RootLayout';
-
-/**
- * QueryClient configurado para o modo offline-first:
- * - staleTime: 5 min → queries são revalidadas após 5 min de inatividade
- * - gcTime: 7 dias → cache persiste offline por uma semana
- * - retry: 2 com backoff exponencial → evita spam em falha de rede
- * - networkMode: 'offlineFirst' → serve do cache mesmo sem conexão
- */
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5,        // 5 minutos
-      gcTime: 1000 * 60 * 60 * 24 * 7, // 7 dias
-      retry: 2,
-      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
-      networkMode: 'offlineFirst',
-    },
-    mutations: {
-      // Mutações tentam sempre — a outbox gerencia retry offline
-      networkMode: 'always',
-    },
-  },
-});
 
 const persister = createAsyncStoragePersister({
   storage: AsyncStorage,
@@ -82,6 +60,12 @@ function AuthGate() {
     logger.info(TAG, 'AuthGate montado — inicializando sessão');
     initialize();
   }, [initialize]);
+
+  // Permissões: solicita câmera + notificações uma vez após o login
+  useEffect(() => {
+    if (!session) return;
+    requestAppPermissions();
+  }, [session]);
 
   // Sync engine: flush da outbox ao logar e a cada 30s
   useEffect(() => {
@@ -132,7 +116,7 @@ export default function RootLayout() {
           }}
         >
           <AuthGate />
-          <Stack screenOptions={{ headerShown: false }}>
+          <Stack screenOptions={{ headerShown: false, animation: 'none' }}>
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(app)" />
             <Stack.Screen name="quote" />

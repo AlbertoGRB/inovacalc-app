@@ -17,6 +17,7 @@ import { create } from 'zustand';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
+import { registerDevice } from '@/lib/device';
 import type { Profile } from '@/types/database';
 
 const TAG = 'authStore';
@@ -124,7 +125,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (data.session) {
         logger.info(TAG, `Login OK: uid=${data.session.user.id}`);
         set({ session: data.session, user: data.session.user });
-        get().loadProfile(); // não bloqueia — continua em background
+
+        // Verifica is_active antes de concluir o login
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.session.user.id)
+          .single();
+
+        if (profile?.is_active === false) {
+          logger.warn(TAG, 'Conta desativada — forçando logout');
+          await supabase.auth.signOut();
+          set({ session: null, user: null, profile: null, loading: false });
+          return { error: 'Sua conta está desativada. Entre em contato com o administrador.' };
+        }
+
+        if (profile) set({ profile: profile as Profile });
+
+        // Registra/atualiza o dispositivo vinculado a este usuário
+        registerDevice(data.session.user.id).catch(() => {});
       }
       set({ loading: false });
       return { error: null };

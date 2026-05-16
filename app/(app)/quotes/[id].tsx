@@ -60,11 +60,22 @@ export default function QuoteDetailsScreen() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('quotes')
-        .select('*, companies(company_name, cnpj)')
+        .select(`
+          *,
+          companies (*),
+          plan_quote_details (*),
+          training_quote_details (
+            *,
+            training_quote_items (
+              *,
+              trainings (*)
+            )
+          )
+        `)
         .eq('id', id)
         .single();
       if (error) throw error;
-      return data as Quote;
+      return data as Quote & { companies?: any; plan_quote_details?: any[]; training_quote_details?: any[] };
     },
     enabled: !!id,
   });

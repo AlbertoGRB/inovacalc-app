@@ -1,4 +1,4 @@
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/theme';
 
@@ -12,27 +12,32 @@ interface SafeContainerProps {
 export function SafeContainer({ children, scroll = false, bg = colors.neutral.gray50, padH = 20 }: SafeContainerProps) {
   const insets = useSafeAreaInsets();
 
-  const style = {
-    flex: 1,
-    backgroundColor: bg,
-    paddingBottom: insets.bottom + 16,
-  };
-
   if (scroll) {
     return (
-      <ScrollView
+      <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: bg }}
-        contentContainerStyle={{ paddingHorizontal: padH, paddingBottom: insets.bottom + 24 }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-        {children}
-      </ScrollView>
+        <ScrollView
+          style={{ flex: 1, backgroundColor: bg }}
+          contentContainerStyle={{ paddingHorizontal: padH, paddingBottom: insets.bottom + 24 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 
   return (
-    <View style={[style, { paddingHorizontal: padH }]}>
+    <View style={{
+      flex: 1,
+      backgroundColor: bg,
+      paddingHorizontal: padH,
+      paddingBottom: insets.bottom + 16,
+    }}>
       {children}
     </View>
   );

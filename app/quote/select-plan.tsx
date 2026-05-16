@@ -7,16 +7,17 @@ import { Header } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { useQuoteDraft, type SelectedPlan } from '@/stores/quoteDraftStore';
+import { useQuoteDraft } from '@/stores/quoteDraftStore';
 import { usePlanConfigs, useGheTable } from '@/hooks/useSettings';
 import { calculatePlans, type PlanResult } from '@/lib/calculations';
 import { colors, typography, radius } from '@/theme';
+import type { PlanType } from '@/types/database';
 
 const formatBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 type PlanCardData = {
-  key: Exclude<SelectedPlan, null>;
+  key: PlanType;
   name: string;
   color: string;
   result: PlanResult;
@@ -69,7 +70,7 @@ export default function SelectPlanScreen() {
       <Header
         title="Escolha o plano"
         subtitle="Comparativo entre os planos calculados"
-        step={{ current: 4, total: 6 }}
+        steps={6} currentStep={4}
         onBack={() => router.back()}
       />
 

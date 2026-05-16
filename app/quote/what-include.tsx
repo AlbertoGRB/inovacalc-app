@@ -40,7 +40,7 @@ export default function WhatIncludeScreen() {
       <Header
         title="O que incluir?"
         subtitle="Marque tudo que fará parte do orçamento"
-        step={{ current: 2, total: 6 }}
+        steps={6} currentStep={2}
         onBack={() => router.back()}
       />
 
@@ -61,7 +61,7 @@ export default function WhatIncludeScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                   <CategoryIcon
                     category={opt.cat}
-                    size="lg"
+                    size={40}
                     icon={<Icon size={22} color={colors.categories[opt.cat].icon} strokeWidth={1.8} />}
                   />
                   <View style={{ flex: 1 }}>

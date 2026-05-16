@@ -6,6 +6,20 @@ export type PlanType = 'ESSENCIAL' | 'INTEGRAL' | 'AVANCADO';
 export type ClientType = 'NONE' | 'ESSENCIAL' | 'INTEGRAL' | 'AVANCADO';
 export type ConfigCategory = 'margem' | 'imposto' | 'fixo' | 'unidade' | 'funcionario';
 
+export interface UserDevice {
+  id: string;
+  user_id: string;
+  device_id: string;
+  device_name: string | null;
+  brand: string | null;
+  model_name: string | null;
+  os_name: string | null;
+  os_version: string | null;
+  app_version: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+}
+
 export interface Profile {
   id: string;
   name: string;

@@ -4,7 +4,7 @@
  * Diferencia erro de rede (sem conexão) de erro do servidor.
  */
 
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, type ViewStyle } from 'react-native';
 import { IconWifiOff, IconAlertTriangle, IconRefresh } from '@tabler/icons-react-native';
 import { colors, typography, radius } from '@/theme';
 
@@ -15,6 +15,8 @@ interface ErrorStateProps {
   onRetry?: () => void;
   /** Mensagem alternativa ao erro padrão. */
   message?: string;
+  /** Estilo adicional no container. */
+  style?: ViewStyle;
 }
 
 function isNetworkErr(err: unknown): boolean {
@@ -28,7 +30,7 @@ function isNetworkErr(err: unknown): boolean {
   );
 }
 
-export function ErrorState({ error, onRetry, message }: ErrorStateProps) {
+export function ErrorState({ error, onRetry, message, style }: ErrorStateProps) {
   const isNet = isNetworkErr(error);
   const title = isNet ? 'Sem conexão' : 'Não foi possível carregar';
   const subtitle =
@@ -39,13 +41,13 @@ export function ErrorState({ error, onRetry, message }: ErrorStateProps) {
 
   return (
     <View
-      style={{
+      style={[{
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 40,
         paddingHorizontal: 24,
         gap: 12,
-      }}
+      }, style] as any}
     >
       <View
         style={{

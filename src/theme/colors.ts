@@ -22,9 +22,9 @@ export const colors = {
     gray900: '#1A1A1A',
   },
   success: { 50: '#EAF3DE', 600: '#3B6D11', 800: '#27500A' },
-  warning: { 50: '#FAEEDA', 600: '#BA7517', 800: '#854F0B' },
+  warning: { 50: '#FAEEDA', 600: '#BA7517', 700: '#9A6213', 800: '#854F0B' },
   danger:  { 50: '#FCEBEB', 600: '#A32D2D', 800: '#791F1F' },
-  info:    { 50: '#E6F1FB', 600: '#185FA5', 800: '#0C447C' },
+  info:    { 50: '#E6F1FB', 200: '#B5D4F4', 600: '#185FA5', 700: '#14508C', 800: '#0C447C' },
   plans: {
     essential: '#185FA5',
     integral:  '#BA7517',

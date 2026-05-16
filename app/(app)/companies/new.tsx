@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   ScrollView, ActivityIndicator, Alert,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -221,6 +222,10 @@ export default function NewCompanyScreen() {
         </Text>
       </View>
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <ScrollView
         style={{ flex: 1, paddingHorizontal: 20, paddingTop: 20 }}
         contentContainerStyle={{ paddingBottom: 48 }}
@@ -416,6 +421,7 @@ export default function NewCompanyScreen() {
         </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

@@ -40,7 +40,7 @@ export default function SelectCompanyScreen() {
       <Header
         title="Selecionar empresa"
         subtitle="Escolha a empresa para este orçamento"
-        step={{ current: 1, total: 6 }}
+        steps={6} currentStep={1}
         onBack={() => router.back()}
       />
 

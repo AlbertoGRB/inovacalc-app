@@ -23,7 +23,7 @@ export default function ConfigurePlanScreen() {
       <Header
         title="Configurar plano"
         subtitle="Defina o perfil da empresa"
-        step={{ current: 3, total: 6 }}
+        steps={6} currentStep={3}
         onBack={() => router.back()}
       />
 

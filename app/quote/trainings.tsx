@@ -27,7 +27,15 @@ const DEFAULT_DISCOUNTS = [
 export default function TrainingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { trainings, setTraining, include, asClientType, extras } = useQuoteDraft();
+  const { trainings, setTrainings, include, asClientType } = useQuoteDraft();
+
+  const setTraining = (id: string, qty: number) => {
+    setTrainings(
+      qty > 0
+        ? [...trainings.filter(t => t.trainingId !== id), { trainingId: id, quantity: qty }]
+        : trainings.filter(t => t.trainingId !== id),
+    );
+  };
   const [search, setSearch] = useState('');
 
   const selectedCombos = new Set(
@@ -71,7 +79,7 @@ export default function TrainingsScreen() {
       <Header
         title="Treinamentos"
         subtitle="Selecione combos ou NRs avulsas"
-        step={{ current: 5, total: 6 }}
+        steps={6} currentStep={5}
         onBack={() => router.back()}
       />
 

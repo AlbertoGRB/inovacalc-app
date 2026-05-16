@@ -1,4 +1,4 @@
-import { View, Text } from 'react-native';
+import { View, Text, type TextStyle } from 'react-native';
 import { colors, typography, radius } from '@/theme';
 
 const CAT_COLORS = {
@@ -28,15 +28,15 @@ export function CategoryIcon({ category, icon, size = 40 }: CategoryIconProps) {
   );
 }
 
-export function SectionLabel({ children }: { children: React.ReactNode }) {
+export function SectionLabel({ children, style }: { children: React.ReactNode; style?: TextStyle }) {
   return (
-    <Text style={{
+    <Text style={[{
       fontFamily: 'Inter_500Medium',
       fontSize: typography.sizes.xs,
       color: colors.neutral.gray500,
       letterSpacing: 0.8,
       textTransform: 'uppercase',
       marginBottom: 10,
-    }}>{children}</Text>
+    }, style]}>{children}</Text>
   );
 }

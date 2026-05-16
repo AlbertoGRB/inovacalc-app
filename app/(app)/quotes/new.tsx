@@ -16,6 +16,7 @@ import {
   calculatePlans, calculateTrainings,
   PlansCalculationResult, TrainingsCalculationResult,
 } from '@/lib/calculations';
+import type { PlanConfig } from '@/types/database';
 import {
   DEFAULT_PLAN_CONFIGS, DEFAULT_GHE_TABLE, DEFAULT_TRAINING_DISCOUNTS,
   PLAN_COLORS, CLIENT_TYPE_OPTIONS, CIPA_RULES,
@@ -833,7 +834,7 @@ function StepTrainings({
 function StepAvulso({
   configs, quantities, onQty, margin, onMargin, baseCost, finalCost, onNext,
 }: {
-  configs: ReturnType<typeof DEFAULT_PLAN_CONFIGS>[number][];
+  configs: PlanConfig[];
   quantities: Record<string, number>;
   onQty: (key: string, delta: number, isFixed: boolean) => void;
   margin: string;

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   Image, ActivityIndicator, Alert, ScrollView,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -44,20 +45,47 @@ export default function ProfileScreen() {
     .toUpperCase();
 
   async function handlePickPhoto() {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (perm.status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Permita o acesso à galeria nas configurações do dispositivo.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.6,
-    });
-    if (!result.canceled && result.assets[0]) {
-      await uploadAvatar(result.assets[0].uri);
-    }
+    Alert.alert('Foto de perfil', 'Como deseja adicionar sua foto?', [
+      {
+        text: 'Tirar foto',
+        onPress: async () => {
+          const perm = await ImagePicker.requestCameraPermissionsAsync();
+          if (perm.status !== 'granted') {
+            Alert.alert('Permissão necessária', 'Permita o acesso à câmera nas configurações do dispositivo.');
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.6,
+          });
+          if (!result.canceled && result.assets[0]) {
+            await uploadAvatar(result.assets[0].uri);
+          }
+        },
+      },
+      {
+        text: 'Escolher da galeria',
+        onPress: async () => {
+          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (perm.status !== 'granted') {
+            Alert.alert('Permissão necessária', 'Permita o acesso à galeria nas configurações do dispositivo.');
+            return;
+          }
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.6,
+          });
+          if (!result.canceled && result.assets[0]) {
+            await uploadAvatar(result.assets[0].uri);
+          }
+        },
+      },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
   }
 
   async function uploadAvatar(uri: string) {
@@ -156,6 +184,10 @@ export default function ProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.neutral.gray50 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <ScrollView
         contentContainerStyle={{ paddingBottom: 32 }}
         keyboardShouldPersistTaps="handled"
@@ -409,6 +441,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <BottomNav />
     </View>
