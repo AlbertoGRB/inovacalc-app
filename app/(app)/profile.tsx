@@ -7,7 +7,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { IconChevronLeft, IconCamera, IconLogout } from '@tabler/icons-react-native';
+import { IconChevronLeft, IconCamera, IconLogout, IconStethoscope } from '@tabler/icons-react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
 import { maskPhone } from '@/lib/format';
@@ -411,6 +411,33 @@ export default function ProfileScreen() {
                 Salvar alterações
               </Text>
             )}
+          </TouchableOpacity>
+
+          {/* Diagnostico */}
+          <TouchableOpacity
+            onPress={() => router.push('/diagnostics' as any)}
+            activeOpacity={0.8}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              borderRadius: radius.md,
+              borderWidth: 1,
+              borderColor: colors.neutral.gray200,
+              backgroundColor: colors.neutral.white,
+              paddingVertical: 14,
+              marginTop: 12,
+            }}
+          >
+            <IconStethoscope size={18} color={colors.primary[600]} strokeWidth={2} />
+            <Text style={{
+              fontFamily: 'Inter_500Medium',
+              fontSize: typography.sizes.lg,
+              color: colors.primary[600],
+            }}>
+              Diagnostico do app
+            </Text>
           </TouchableOpacity>
 
           {/* Sair da conta */}
