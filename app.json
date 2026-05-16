@@ -12,7 +12,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/8e15b68f-2f4c-49b6-a98d-b29db3cb2408",
+      "url": "https://u.expo.dev/95ffec05-ca61-49a4-b3e2-35c31d669906",
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0
@@ -59,7 +59,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "8e15b68f-2f4c-49b6-a98d-b29db3cb2408"
+        "projectId": "95ffec05-ca61-49a4-b3e2-35c31d669906"
       }
     },
     "owner": "albertogabriel"
