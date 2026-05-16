@@ -12,22 +12,19 @@ import { SectionLabel } from '@/components/ui/CategoryIcon';
 import { useQuoteDraft } from '@/stores/quoteDraftStore';
 import { DEFAULT_TRAININGS } from '@/lib/trainings-catalog';
 import { calculateTrainings } from '@/lib/calculations';
+import { DEFAULT_TRAINING_DISCOUNTS } from '@/lib/constants';
+import { useTrainingDiscounts } from '@/hooks/useSettings';
 import { colors, typography, radius } from '@/theme';
 
 const formatBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-const DEFAULT_DISCOUNTS = [
-  { id: '1', plan_type: 'NONE'      as const, discount_percent: 0,  updated_at: '' },
-  { id: '2', plan_type: 'ESSENCIAL' as const, discount_percent: 5,  updated_at: '' },
-  { id: '3', plan_type: 'INTEGRAL'  as const, discount_percent: 10, updated_at: '' },
-  { id: '4', plan_type: 'AVANCADO'  as const, discount_percent: 15, updated_at: '' },
-];
-
 export default function TrainingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { trainings, setTrainings, include, asClientType } = useQuoteDraft();
+  const { data: discountsFromDB } = useTrainingDiscounts();
+  const discounts = discountsFromDB ?? DEFAULT_TRAINING_DISCOUNTS;
 
   const setTraining = (id: string, qty: number) => {
     setTrainings(
@@ -64,7 +61,7 @@ export default function TrainingsScreen() {
   });
   const calc = calculateTrainings(
     { clientType: asClientType(), additionalDiscount: 0, items },
-    DEFAULT_DISCOUNTS,
+    discounts,
   );
 
   const handleNext = () => {

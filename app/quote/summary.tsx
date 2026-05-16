@@ -16,14 +16,9 @@ import { usePlanConfigs, useGheTable } from '@/hooks/useSettings';
 import { useCreateQuote } from '@/hooks/useCreateQuote';
 import { calculatePlans, calculateTrainings, type PlanResult } from '@/lib/calculations';
 import { DEFAULT_TRAININGS } from '@/lib/trainings-catalog';
+import { DEFAULT_TRAINING_DISCOUNTS } from '@/lib/constants';
+import { useTrainingDiscounts } from '@/hooks/useSettings';
 import { colors, typography, radius } from '@/theme';
-
-const DEFAULT_DISCOUNTS = [
-  { id: '1', plan_type: 'NONE'      as const, discount_percent: 0,  updated_at: '' },
-  { id: '2', plan_type: 'ESSENCIAL' as const, discount_percent: 5,  updated_at: '' },
-  { id: '3', plan_type: 'INTEGRAL'  as const, discount_percent: 10, updated_at: '' },
-  { id: '4', plan_type: 'AVANCADO'  as const, discount_percent: 15, updated_at: '' },
-];
 
 const formatBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -35,6 +30,8 @@ export default function SummaryScreen() {
   const { company, include, planConfig, selectedPlan, trainings, asClientType, reset } = draft;
   const { data: configs = [] } = usePlanConfigs();
   const { data: ghe = [] } = useGheTable();
+  const { data: discountsFromDB } = useTrainingDiscounts();
+  const discounts = discountsFromDB ?? DEFAULT_TRAINING_DISCOUNTS;
   const createQuote = useCreateQuote();
   const [saved, setSaved] = useState(false);
 
@@ -57,7 +54,7 @@ export default function SummaryScreen() {
   const trainingResult = include.trainings && trainingItems.length > 0
     ? calculateTrainings(
         { clientType: asClientType(), additionalDiscount: 0, items: trainingItems },
-        DEFAULT_DISCOUNTS,
+        discounts,
       )
     : null;
 
@@ -94,6 +91,7 @@ export default function SummaryScreen() {
         draft,
         configs,
         ghe,
+        discounts,
         status: 'DRAFT',
       });
       setSaved(true);

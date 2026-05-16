@@ -27,18 +27,13 @@ import {
   QuoteStatus, QuoteType, PlanType, Quote,
 } from '@/types/database';
 import { isNetworkError } from '@/lib/sync';
-
-const DEFAULT_DISCOUNTS: TrainingDiscount[] = [
-  { id: '1', plan_type: 'NONE',      discount_percent: 0,  updated_at: '' },
-  { id: '2', plan_type: 'ESSENCIAL', discount_percent: 5,  updated_at: '' },
-  { id: '3', plan_type: 'INTEGRAL',  discount_percent: 10, updated_at: '' },
-  { id: '4', plan_type: 'AVANCADO',  discount_percent: 15, updated_at: '' },
-];
+import { DEFAULT_TRAINING_DISCOUNTS } from '@/lib/constants';
 
 type CreateQuoteInput = {
   draft: QuoteDraftState;
   configs: PlanConfig[];
   ghe: GheTable[];
+  discounts?: TrainingDiscount[];
   status?: QuoteStatus;
   notes?: string | null;
 };
@@ -66,7 +61,7 @@ export function useCreateQuote() {
   const userId = useAuthStore(s => s.profile?.id ?? null);
 
   return useMutation({
-    mutationFn: async ({ draft, configs, ghe, status = 'DRAFT', notes = null }: CreateQuoteInput) => {
+    mutationFn: async ({ draft, configs, ghe, discounts, status = 'DRAFT', notes = null }: CreateQuoteInput) => {
       if (!draft.company) throw new Error('Selecione uma empresa antes de salvar.');
       if (!userId)        throw new Error('Sessão inválida.');
 
@@ -88,7 +83,7 @@ export function useCreateQuote() {
       const trainingResult = draft.include.trainings && trainingItems.length > 0
         ? calculateTrainings(
             { clientType: draft.asClientType(), additionalDiscount: 0, items: trainingItems },
-            DEFAULT_DISCOUNTS,
+            discounts ?? DEFAULT_TRAINING_DISCOUNTS,
           )
         : null;
 
