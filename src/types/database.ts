@@ -37,6 +37,7 @@ export interface Company {
   company_name: string;
   trade_name: string | null;
   cnpj: string;
+  cpf: string | null;
   email: string;
   phone: string;
   contact_name: string;
@@ -49,6 +50,7 @@ export interface Company {
   employee_count: number;
   risk_grade: number;
   notes: string | null;
+  clickup_task_id: string | null;
   status: CompanyStatus;
   created_by: string | null;
   created_at: string;
@@ -67,6 +69,7 @@ export interface Quote {
   payment_terms: string | null;
   notes: string | null;
   pdf_url: string | null;
+  signature_url: string | null;
   approved_at: string | null;
   rejected_at: string | null;
   created_by: string | null;
@@ -114,4 +117,11 @@ export interface TrainingDiscount {
   plan_type: ClientType;
   discount_percent: number;
   updated_at: string;
+}
+
+export interface CompanyFavorite {
+  id: string;
+  user_id: string;
+  company_id: string;
+  created_at: string;
 }

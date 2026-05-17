@@ -27,10 +27,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { queryClient } from '@/lib/queryClient';
 import { useFonts, Inter_400Regular, Inter_500Medium } from '@expo-google-fonts/inter';
 import { useAuthStore } from '@/stores/authStore';
+import { useNotificationsStore } from '@/stores/notificationsStore';
 import { flushOutbox } from '@/lib/sync';
 import { setupNetworkManager } from '@/lib/network';
 import { requestAppPermissions } from '@/lib/permissions';
+import { rescheduleAllQuoteNotifications } from '@/lib/notifications';
+import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
+import * as Notifications from 'expo-notifications';
 
 // Configura integração de rede com TanStack Query antes de qualquer coisa
 setupNetworkManager();
@@ -77,6 +81,38 @@ function AuthGate() {
     }, 30_000);
     return () => clearInterval(interval);
   }, [session]);
+
+  // Reschedule quote expiry notifications after login
+  useEffect(() => {
+    if (!session) return;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('quotes')
+          .select('id, quote_number, valid_until, status');
+        if (data && data.length > 0) {
+          await rescheduleAllQuoteNotifications(data);
+        }
+      } catch (e) {
+        logger.warn(TAG, 'Failed to reschedule notifications', e);
+      }
+    })();
+  }, [session]);
+
+  // Listen for received notifications and add to in-app store
+  useEffect(() => {
+    const sub = Notifications.addNotificationReceivedListener((notification) => {
+      const { title, body, data } = notification.request.content;
+      useNotificationsStore.getState().addNotification({
+        type: (data?.type as any) === 'quote_expiry' ? 'quote' : 'system',
+        title: title ?? 'Notificação',
+        body: body ?? '',
+        time: 'Agora',
+        data: data as Record<string, unknown> | undefined,
+      });
+    });
+    return () => sub.remove();
+  }, []);
 
   // Redireciona baseado no estado de auth (só após inicialização completa)
   useEffect(() => {

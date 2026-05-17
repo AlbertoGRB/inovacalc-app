@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  View, Text, ScrollView, ActivityIndicator, Share, Alert, TextInput,
+  View, Text, ScrollView, ActivityIndicator, Alert, TextInput,
   TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import {
-  IconShare, IconFileText, IconBuilding, IconCalendar, IconCheck,
-  IconFileExport, IconEdit, IconCopy,
+  IconFileText, IconBuilding, IconCalendar, IconCheck,
+  IconFileExport, IconEdit, IconPencil, IconSignature,
 } from '@tabler/icons-react-native';
+import { Image } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { Header } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
@@ -19,6 +20,8 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { SectionLabel } from '@/components/ui/CategoryIcon';
 import { shareQuotePdf } from '@/lib/pdf';
 import { useUpdateQuote } from '@/hooks/useUpdateQuote';
+import { uploadSignature, updateQuoteSignature, getSignatureUrl } from '@/lib/signature';
+import { SignaturePad } from '@/components/ui/SignaturePad';
 import { Quote, QuoteStatus } from '@/types/database';
 import { colors, typography, radius } from '@/theme';
 
@@ -52,6 +55,9 @@ export default function QuoteDetailsScreen() {
   const [editStatus, setEditStatus] = useState<QuoteStatus>('DRAFT');
   const [editNotes, setEditNotes] = useState('');
   const [sendingPdf, setSendingPdf] = useState(false);
+  const [showSignature, setShowSignature] = useState(false);
+  const [sigLoading, setSigLoading] = useState(false);
+  const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
 
   const updateQuote = useUpdateQuote();
 
@@ -101,6 +107,30 @@ export default function QuoteDetailsScreen() {
     }
   };
 
+  // Load signature preview when data has signature_url
+  useEffect(() => {
+    if (!data?.signature_url) return;
+    getSignatureUrl(data.signature_url).then(url => {
+      if (url) setSignaturePreview(url);
+    });
+  }, [data?.signature_url]);
+
+  const handleSignature = async (base64: string) => {
+    if (!data) return;
+    setSigLoading(true);
+    try {
+      const path = await uploadSignature(data.id, base64);
+      await updateQuoteSignature(data.id, path);
+      const url = await getSignatureUrl(path);
+      if (url) setSignaturePreview(url);
+      setShowSignature(false);
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message ?? 'Falha ao salvar assinatura.');
+    } finally {
+      setSigLoading(false);
+    }
+  };
+
   const handleSendPdf = async () => {
     if (!data) return;
     setSendingPdf(true);
@@ -111,19 +141,6 @@ export default function QuoteDetailsScreen() {
     } finally {
       setSendingPdf(false);
     }
-  };
-
-  const handleShareText = async () => {
-    if (!data) return;
-    const msg = [
-      '*Orçamento Inovassie*',
-      `Número: ${data.quote_number}`,
-      `Empresa: ${data.companies?.company_name ?? '-'}`,
-      `Total anual: ${formatBRL(data.total_value)}`,
-      `Mensal: ${formatBRL(data.monthly_value)}`,
-      `Válido até: ${formatDate(data.valid_until)}`,
-    ].join('\n');
-    try { await Share.share({ message: msg }); } catch {}
   };
 
   if (isLoading || !data) {
@@ -213,17 +230,65 @@ export default function QuoteDetailsScreen() {
           </>
         )}
 
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
-          <View style={{ flex: 1 }}>
-            <Button label="Compartilhar texto" variant="secondary" onPress={handleShareText}
-              icon={<IconShare size={16} color={colors.neutral.gray800} strokeWidth={1.8} />} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button label="Duplicar" variant="secondary"
-              onPress={() => Alert.alert('Em breve', 'Duplicação em desenvolvimento')}
-              icon={<IconCopy size={16} color={colors.neutral.gray800} strokeWidth={1.8} />} />
-          </View>
-        </View>
+        {/* Signature section */}
+        <SectionLabel style={{ marginTop: 20 }}>Assinatura</SectionLabel>
+        {signaturePreview ? (
+          <Card padding="md">
+            <Image
+              source={{ uri: signaturePreview }}
+              style={{ width: '100%', height: 100, resizeMode: 'contain' }}
+            />
+            <TouchableOpacity
+              onPress={() => setShowSignature(true)}
+              style={{ marginTop: 8, alignItems: 'center' }}
+            >
+              <Text style={{
+                fontFamily: 'Inter_500Medium',
+                fontSize: typography.sizes.sm,
+                color: colors.primary[600],
+              }}>Assinar novamente</Text>
+            </TouchableOpacity>
+          </Card>
+        ) : (
+          <TouchableOpacity
+            onPress={() => setShowSignature(true)}
+            activeOpacity={0.7}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              backgroundColor: colors.neutral.white,
+              borderRadius: radius.lg,
+              borderWidth: 1,
+              borderColor: colors.primary[200],
+              borderStyle: 'dashed',
+              paddingHorizontal: 14,
+              paddingVertical: 16,
+            }}
+          >
+            <View style={{
+              width: 36, height: 36, borderRadius: 10,
+              backgroundColor: colors.primary[50],
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              <IconSignature size={18} color={colors.primary[600]} strokeWidth={1.8} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontFamily: 'Inter_500Medium',
+                fontSize: typography.sizes.md,
+                color: colors.neutral.gray900,
+              }}>Assinar orcamento</Text>
+              <Text style={{
+                fontFamily: 'Inter_400Regular',
+                fontSize: typography.sizes.sm,
+                color: colors.neutral.gray500,
+                marginTop: 1,
+              }}>Capturar assinatura digital do cliente</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
       </ScrollView>
 
       <View style={{
@@ -245,6 +310,13 @@ export default function QuoteDetailsScreen() {
             icon={<IconFileExport size={16} color={colors.neutral.white} strokeWidth={1.8} />} />
         </View>
       </View>
+
+      <SignaturePad
+        visible={showSignature}
+        onClose={() => setShowSignature(false)}
+        onConfirm={handleSignature}
+        loading={sigLoading}
+      />
 
       <BottomSheet visible={editing} onClose={() => setEditing(false)} title="Editar orçamento">
         <SectionLabel>Status</SectionLabel>

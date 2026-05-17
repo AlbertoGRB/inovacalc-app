@@ -1,9 +1,9 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
-import { Asset } from 'expo-asset';
+import { LETTERHEAD_BASE64 } from './letterhead';
+import { getSignatureUrl } from './signature';
 
-// ─── Constantes de plano (inline — não existem no constants mobile) ───────────
+// ─── Constantes de plano ────────────────────────────────────────────────────
 
 const PLAN_LABELS: Record<string, string> = {
   ESSENCIAL: 'Plano Essencial',
@@ -13,23 +13,21 @@ const PLAN_LABELS: Record<string, string> = {
 
 const CIPA_RULES: Record<number, number> = { 1: 81, 2: 51, 3: 20, 4: 20 }
 
-// ─── Paleta ───────────────────────────────────────────────────────────────────
+// ─── Paleta (identica ao web ProposalPDF.tsx) ────────────────────────────────
 
 const C = {
-  teal:       '#16B5B5',
-  tealLight:  '#D6F2F2',
-  tealMid:    '#A7E2E2',
-  navy:       '#1A3A5C',
-  navyDark:   '#152B49',
-  darkBlue:   '#1A3A5C',
+  teal:       '#17B7BD',
+  tealLight:  '#DDF4F6',
+  tealMid:    '#8DDFE4',
+  navy:       '#003B63',
+  navyDark:   '#112B4B',
   white:      '#FFFFFF',
-  darkGray:   '#1F2937',
-  medGray:    '#475569',
-  lightGray:  '#94A3B8',
-  bgLight:    '#F8FAFC',
+  text:       '#1F2937',
+  textSoft:   '#475569',
+  muted:      '#94A3B8',
   bgInfo:     '#E0F2FE',
+  bgInfoText: '#1A3A5C',
   border:     '#E5E7EB',
-  borderMid:  '#D1D5DB',
   amber:      '#F59E0B',
   amberBg:    '#FFFBEB',
   amberText:  '#78350F',
@@ -38,14 +36,14 @@ const C = {
   successText:'#065F46',
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
 function fmt(v: number): string {
   return (v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 function fmtDate(s: string): string {
-  if (!s) return '—'
+  if (!s) return '\u2014'
   try {
     const d = s.includes('T') ? new Date(s) : new Date(s + 'T12:00:00')
     return d.toLocaleDateString('pt-BR')
@@ -58,48 +56,140 @@ function esc(s: string | null | undefined): string {
 
 function getTitle(type: string, planType?: string): string {
   const planLabel = planType ? (PLAN_LABELS[planType] ?? planType) : 'Plano SST'
-  if (type === 'PLAN')     return `PROPOSTA COMERCIAL — ${planLabel}`
-  if (type === 'TRAINING') return 'PROPOSTA COMERCIAL — Treinamentos NR'
-  return `PROPOSTA COMERCIAL — ${planLabel} + Treinamentos`
+  if (type === 'PLAN')     return `PROPOSTA COMERCIAL \u2014 ${planLabel.toUpperCase()}`
+  if (type === 'TRAINING') return 'PROPOSTA COMERCIAL \u2014 TREINAMENTOS NR'
+  return `PROPOSTA COMERCIAL \u2014 ${planLabel.toUpperCase()} + TREINAMENTOS`
 }
 
 function getTypeLabel(type: string): string {
   if (type === 'PLAN')     return 'Plano SST'
   if (type === 'TRAINING') return 'Treinamentos NR'
-  return 'Plano + Treinamentos'
+  return 'Planos e Treinamentos'
 }
 
 function buildIncludedServices(planType: string, employees: number, riskGrade: number): string[] {
   const services = [
-    'Gestão básica de documentos de SST',
-    'Orientações técnicas e suporte',
+    'Gest\u00e3o b\u00e1sica de documentos de SST',
+    'Orienta\u00e7\u00f5es t\u00e9cnicas e suporte',
     'Treinamentos conforme necessidade',
-    'Emissão de registros e certificados',
+    'Emiss\u00e3o de registros e certificados',
   ]
   const cipaThreshold = CIPA_RULES[riskGrade] ?? 999
   const hasCipa = planType === 'AVANCADO' && employees >= cipaThreshold
-  return hasCipa ? [...services, 'CIPA (neste porte: incluída)'] : services
+  return hasCipa ? [...services, 'CIPA (neste porte: inclu\u00edda)'] : services
 }
 
-async function assetToDataUri(moduleId: number): Promise<string | null> {
-  try {
-    const asset = Asset.fromModule(moduleId)
-    await asset.downloadAsync()
-    const uri = asset.localUri ?? asset.uri
-    if (!uri) return null
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: 'base64',
-    })
-    return `data:image/png;base64,${base64}`
-  } catch {
-    return null
-  }
-}
+// Letterhead base64 importado de ./letterhead.ts (embutido, sem dependencia de filesystem)
 
-// ─── Geração do HTML ──────────────────────────────────────────────────────────
+// ─── SVG Icons (inline HTML, identicos ao web) ──────────────────────────────
+
+const SW = 1.7
+
+const svgCalendar = (size = 14) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="3" y="5" width="18" height="16" rx="2" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+  <line x1="3" y1="9" x2="21" y2="9" stroke="${C.teal}" stroke-width="${SW}"/>
+  <line x1="8" y1="3" x2="8" y2="7" stroke="${C.teal}" stroke-width="${SW}"/>
+  <line x1="16" y1="3" x2="16" y2="7" stroke="${C.teal}" stroke-width="${SW}"/>
+</svg>`
+
+const svgDoc = (size = 14) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+  <polyline points="14,3 14,9 20,9" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+</svg>`
+
+const svgBuilding = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="4" y="3" width="16" height="18" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+  <line x1="8" y1="7" x2="10" y2="7" stroke="${C.teal}" stroke-width="${SW}"/>
+  <line x1="14" y1="7" x2="16" y2="7" stroke="${C.teal}" stroke-width="${SW}"/>
+  <line x1="8" y1="11" x2="10" y2="11" stroke="${C.teal}" stroke-width="${SW}"/>
+  <line x1="14" y1="11" x2="16" y2="11" stroke="${C.teal}" stroke-width="${SW}"/>
+  <line x1="8" y1="15" x2="10" y2="15" stroke="${C.teal}" stroke-width="${SW}"/>
+  <line x1="14" y1="15" x2="16" y2="15" stroke="${C.teal}" stroke-width="${SW}"/>
+</svg>`
+
+const svgId = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="3" y="5" width="18" height="14" rx="2" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+  <circle cx="9" cy="11" r="2" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+  <line x1="14" y1="10" x2="18" y2="10" stroke="${C.teal}" stroke-width="${SW}"/>
+  <line x1="14" y1="13" x2="18" y2="13" stroke="${C.teal}" stroke-width="${SW}"/>
+</svg>`
+
+const svgShield = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+  <polyline points="8.5,12 11,14.5 16,9.5" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+</svg>`
+
+const svgUser = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="12" cy="8" r="4" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+  <path d="M4 21c0-4 4-7 8-7s8 3 8 7" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+</svg>`
+
+const svgBriefcase = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="3" y="7" width="18" height="13" rx="2" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+  <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+</svg>`
+
+const svgPhone = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+</svg>`
+
+const svgMail = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="3" y="5" width="18" height="14" rx="2" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+  <polyline points="3,7 12,13 21,7" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+</svg>`
+
+const svgPin = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 22s8-7 8-13a8 8 0 0 0-16 0c0 6 8 13 8 13z" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+  <circle cx="12" cy="9" r="2.5" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+</svg>`
+
+const svgCheckCircle = (size = 12) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="12" cy="12" r="11" fill="${C.teal}"/>
+  <polyline points="7,12.5 10.5,16 17,9.5" stroke="${C.white}" stroke-width="2.6" fill="none"/>
+</svg>`
+
+const svgUserCircle = `<svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="12" cy="12" r="11" fill="${C.teal}"/>
+  <circle cx="12" cy="10" r="3.2" fill="${C.white}"/>
+  <path d="M5 20c1.5-3 4-4.5 7-4.5s5.5 1.5 7 4.5z" fill="${C.white}"/>
+</svg>`
+
+const svgChartCircle = `<svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="12" cy="12" r="11" fill="${C.teal}"/>
+  <line x1="7" y1="17" x2="7" y2="12" stroke="${C.white}" stroke-width="2.2"/>
+  <line x1="12" y1="17" x2="12" y2="8" stroke="${C.white}" stroke-width="2.2"/>
+  <line x1="17" y1="17" x2="17" y2="14" stroke="${C.white}" stroke-width="2.2"/>
+</svg>`
+
+const svgTargetCircle = `<svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="12" cy="12" r="11" fill="${C.teal}"/>
+  <circle cx="12" cy="12" r="6" stroke="${C.white}" stroke-width="1.8" fill="none"/>
+  <circle cx="12" cy="12" r="2.5" fill="${C.white}"/>
+</svg>`
+
+const svgInfo = `<svg viewBox="0 0 24 24" width="12" height="12" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="12" cy="12" r="11" fill="${C.teal}"/>
+  <line x1="12" y1="11" x2="12" y2="17" stroke="${C.white}" stroke-width="2.6"/>
+  <circle cx="12" cy="7.5" r="1.4" fill="${C.white}"/>
+</svg>`
+
+const svgRefresh = (size = 18) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M3 12a9 9 0 0 1 15-6.7L21 8" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+  <polyline points="21,3 21,8 16,8" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+  <path d="M21 12a9 9 0 0 1-15 6.7L3 16" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+  <polyline points="3,21 3,16 8,16" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+</svg>`
+
+const svgCard = (size = 18) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="3" y="6" width="18" height="13" rx="2" stroke="${C.teal}" stroke-width="${SW}" fill="none"/>
+  <line x1="3" y1="10" x2="21" y2="10" stroke="${C.teal}" stroke-width="${SW}"/>
+  <line x1="7" y1="15" x2="11" y2="15" stroke="${C.teal}" stroke-width="${SW}"/>
+</svg>`
+
+// ─── Geracao do HTML ────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildHtml(q: any, letterheadDataUri?: string | null): string {
+function buildHtml(q: any, letterheadDataUri?: string | null, signatureDataUri?: string | null): string {
   const company      = q.companies ?? {}
   const planDetail   = q.plan_quote_details?.[0] ?? null
   const trainDetail  = q.training_quote_details?.[0] ?? null
@@ -114,13 +204,20 @@ function buildHtml(q: any, letterheadDataUri?: string | null): string {
   const planType: string | undefined = planDetail?.selected_plan ?? (includesPlan ? 'ESSENCIAL' : undefined)
 
   const trainingItems: any[] = (trainDetail?.training_quote_items ?? []).filter((i: any) => i.quantity > 0)
-  const needsPage2   = trainingItems.length > 5
+  const needsPage2 = trainingItems.length > 6
 
   const includedServices = planType
-    ? buildIncludedServices(planType, planDetail?.total_employees ?? 0, planDetail?.risk_grade ?? 1)
+    ? buildIncludedServices(planType, planDetail?.total_employees ?? 0, planDetail?.risk_grade ?? company.risk_grade ?? 1)
     : []
 
-  // Extrai valor do plano: tenta pelo selected_plan, depois qualquer valor não-zero
+  const showPlan      = includesPlan
+  const showTrainings = includesTrainings
+
+  const isTempId = typeof company.cnpj === 'string' && company.cnpj.startsWith('TEMP-')
+  const docLabel = company.cpf && !company.cnpj ? 'CPF' : (isTempId ? 'Identifica\u00e7\u00e3o provis\u00f3ria' : 'CNPJ')
+  const docValue = company.cpf && !company.cnpj ? company.cpf : (company.cnpj || 'A preencher')
+
+  // Extrai valor do plano
   let planFinal = 0
   if (hasPlan) {
     if (planType === 'ESSENCIAL')    planFinal = Number(planDetail?.essencial_final_value) || 0
@@ -146,740 +243,446 @@ function buildHtml(q: any, letterheadDataUri?: string | null): string {
     }
   }
 
-  const showPlan      = includesPlan
-  const showTrainings = includesTrainings
+  const planLabel = planType ? (PLAN_LABELS[planType] ?? planType) : 'Plano SST'
 
-  const discountPct   = trainDetail?.plan_discount ?? 0
-  // ── Tabela de treinamentos (Página 2) ────────────────────────────────────
-  const trainingTableRows = trainingItems.map((item: any, i: number) => {
-    const bg = i % 2 === 0 ? C.white : '#F9FAFB'
-    return `
-      <tr style="background:${bg};">
-        <td style="padding:5px 8px;font-size:8px;font-weight:700;border-bottom:1px solid #F3F4F6;">${esc(item.trainings?.code ?? '—')}</td>
-        <td style="padding:5px 8px;font-size:8px;border-bottom:1px solid #F3F4F6;">${esc(item.trainings?.description ?? '—')}</td>
-        <td style="padding:5px 8px;font-size:8px;text-align:center;border-bottom:1px solid #F3F4F6;">${item.quantity}</td>
-        <td style="padding:5px 8px;font-size:8px;text-align:right;border-bottom:1px solid #F3F4F6;">${fmt(item.unit_value)}</td>
-        <td style="padding:5px 8px;font-size:8px;font-weight:700;text-align:right;border-bottom:1px solid #F3F4F6;">${fmt(item.total_value)}</td>
-      </tr>`
-  }).join('')
+  // ── Servicos inclusos (conteudo do box) ───────────────────────────────────
+  let servicesContent = ''
+  if (showPlan && planType) {
+    servicesContent = includedServices.map(s => `
+      <div style="display:flex;align-items:flex-start;gap:9px;margin-bottom:15px;">
+        <div style="margin-top:2px;">${svgCheckCircle(12)}</div>
+        <span style="flex:1;font-size:7.9px;color:${C.text};line-height:1.25;">${esc(s)}</span>
+      </div>`).join('')
+  } else if (!showPlan && hasTrainings) {
+    servicesContent = trainingItems.slice(0, 5).map((it: any) => `
+      <div style="display:flex;align-items:flex-start;gap:9px;margin-bottom:15px;">
+        <div style="margin-top:2px;">${svgCheckCircle(12)}</div>
+        <span style="flex:1;font-size:7.9px;color:${C.text};line-height:1.25;">${esc(it.trainings?.code ?? 'NR')} \u2014 ${esc(it.trainings?.description ?? 'Treinamento')} (${it.quantity}x)</span>
+      </div>`).join('')
+    if (trainingItems.length > 5) {
+      servicesContent += `<div style="font-size:7.5px;color:${C.textSoft};margin-left:18px;">+ ${trainingItems.length - 5} treinamento(s) \u2014 ver p\u00e1g. 2</div>`
+    }
+  } else if (!hasTrainings && includesTrainings) {
+    servicesContent = `
+      <div style="display:flex;align-items:flex-start;gap:9px;margin-bottom:15px;">
+        <div style="margin-top:2px;">${svgCheckCircle(12)}</div>
+        <span style="flex:1;font-size:7.9px;color:${C.text};line-height:1.25;">Treinamentos NR conforme contratado</span>
+      </div>`
+  } else if (!showPlan && !showTrainings) {
+    servicesContent = `<div style="font-size:8px;color:${C.muted};">Consulte os itens contratados</div>`
+  }
 
-  const subtotalTraining = trainDetail?.subtotal ?? 0
+  // ── Colunas de investimento ───────────────────────────────────────────────
+  let investCols = ''
 
-  const trainingTableSection = hasTrainings && needsPage2 ? `
-    <p style="font-size:7px;font-weight:700;color:${C.darkBlue};text-transform:uppercase;letter-spacing:1.2px;
-       margin:0 0 8px 0;padding-bottom:4px;border-bottom:1.5px solid ${C.teal};">
-      Detalhamento — Treinamentos NR
-    </p>
-    <table style="width:100%;border-collapse:collapse;border:1px solid ${C.border};border-radius:5px;overflow:hidden;margin-bottom:14px;">
-      <thead>
-        <tr style="background:${C.darkBlue};">
-          <th style="padding:7px 8px;font-size:7px;color:${C.white};text-align:left;width:12%;">Código</th>
-          <th style="padding:7px 8px;font-size:7px;color:${C.white};text-align:left;">Descrição</th>
-          <th style="padding:7px 8px;font-size:7px;color:${C.white};text-align:center;width:8%;">Qtd</th>
-          <th style="padding:7px 8px;font-size:7px;color:${C.white};text-align:right;width:18%;">Valor Unit.</th>
-          <th style="padding:7px 8px;font-size:7px;color:${C.white};text-align:right;width:18%;">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${trainingTableRows}
-      </tbody>
-      <tfoot>
-        <tr style="background:${C.tealLight};">
-          <td colspan="4" style="padding:7px 8px;font-size:7.5px;font-weight:700;">Subtotal</td>
-          <td style="padding:7px 8px;font-size:7.5px;font-weight:700;text-align:right;">${fmt(subtotalTraining)}</td>
-        </tr>
-        ${discountPct > 0 ? `
-        <tr style="background:#A7F3D0;">
-          <td colspan="4" style="padding:7px 8px;font-size:7.5px;font-weight:700;color:${C.successText};">Desconto do plano (${discountPct}%)</td>
-          <td style="padding:7px 8px;font-size:7.5px;font-weight:700;color:${C.successText};text-align:right;">- ${fmt(subtotalTraining * discountPct / 100)}</td>
-        </tr>` : ''}
-        <tr style="background:${C.darkBlue};">
-          <td colspan="4" style="padding:7px 8px;font-size:7.5px;font-weight:700;color:${C.white};">Valor Final</td>
-          <td style="padding:7px 8px;font-size:7.5px;font-weight:700;color:${C.white};text-align:right;">${fmt(trainingFinal)}</td>
-        </tr>
-      </tfoot>
-    </table>` : ''
+  if (showPlan) {
+    investCols += `
+      <div style="flex:1;background:${C.white};border:1.1px solid #0F172A;">
+        <div style="background:${C.navy};padding:11px 6px;text-align:center;">
+          <span style="font-size:10.6px;color:${C.white};font-weight:700;letter-spacing:0.3px;">${esc(planLabel)}</span>
+        </div>
+        <div style="height:1px;background:#0F172A;"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:13px 5px;min-height:64px;">
+          <span style="font-size:7.8px;color:${C.textSoft};text-align:center;">(${fmt(planFinal)}/ano)</span>
+        </div>
+      </div>`
+  }
 
-  const resumoInvestimentoSection = needsPage2 ? `
-    <p style="font-size:7px;font-weight:700;color:${C.darkBlue};text-transform:uppercase;letter-spacing:1.2px;
-       margin:14px 0 8px 0;padding-bottom:4px;border-bottom:1.5px solid ${C.teal};">
-      Resumo do Investimento
-    </p>
-    <table style="width:100%;border-collapse:collapse;border:1px solid ${C.border};border-radius:5px;overflow:hidden;">
-      <thead>
-        <tr style="background:${C.teal};">
-          <th style="padding:7px 8px;font-size:7px;color:${C.white};text-align:left;">Item</th>
-          <th style="padding:7px 8px;font-size:7px;color:${C.white};text-align:right;width:28%;">Valor Anual</th>
-          <th style="padding:7px 8px;font-size:7px;color:${C.white};text-align:right;width:28%;">Valor Mensal</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${hasPlan ? `
-        <tr style="background:${C.white};">
-          <td style="padding:6px 8px;font-size:7.5px;">${esc(planType ? (PLAN_LABELS[planType] ?? planType) : 'Plano SST')}</td>
-          <td style="padding:6px 8px;font-size:7.5px;text-align:right;">${fmt(planFinal)}</td>
-          <td style="padding:6px 8px;font-size:7.5px;text-align:right;">${fmt(planFinal / 12)}</td>
-        </tr>` : ''}
-        ${hasTrainings ? `
-        <tr style="background:#F9FAFB;">
-          <td style="padding:6px 8px;font-size:7.5px;">Treinamentos NR (${trainingItems.length} item${trainingItems.length !== 1 ? 's' : ''})</td>
-          <td style="padding:6px 8px;font-size:7.5px;text-align:right;">${fmt(trainingFinal)}</td>
-          <td style="padding:6px 8px;font-size:7.5px;text-align:right;">${fmt(trainingFinal / 12)}</td>
-        </tr>` : ''}
-      </tbody>
-      <tfoot>
-        <tr style="background:${C.darkBlue};">
-          <td style="padding:7px 8px;font-size:7.5px;font-weight:700;color:${C.white};">Total Geral</td>
-          <td style="padding:7px 8px;font-size:7.5px;font-weight:700;color:${C.white};text-align:right;">${fmt(q.total_value)}</td>
-          <td style="padding:7px 8px;font-size:7.5px;font-weight:700;color:${C.white};text-align:right;">${fmt(q.monthly_value)}</td>
-        </tr>
-      </tfoot>
-    </table>` : ''
+  if (showTrainings) {
+    const borderStyle = showPlan
+      ? 'border-top:1.1px solid #0F172A;border-bottom:1.1px solid #0F172A;border-right:1.1px solid #0F172A;'
+      : 'border:1.1px solid #0F172A;'
+    investCols += `
+      <div style="flex:1;background:${C.white};${borderStyle}">
+        <div style="background:${C.navy};padding:11px 6px;text-align:center;">
+          <span style="font-size:10.6px;color:${C.white};font-weight:700;letter-spacing:0.3px;">Treinamentos</span>
+        </div>
+        <div style="height:1px;background:#0F172A;"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:13px 5px;min-height:64px;">
+          <span style="font-size:10.8px;font-weight:700;color:${C.teal};margin-bottom:2px;">${fmt(trainingFinal)}</span>
+          <span style="font-size:7.8px;color:${C.textSoft};text-align:center;">(Pagamento \u00fanico)</span>
+        </div>
+      </div>`
+  }
+
+  // Total Anual column
+  const totalBorderStyle = (showPlan || showTrainings)
+    ? 'border-top:1.1px solid #0F172A;border-bottom:1.1px solid #0F172A;border-right:1.1px solid #0F172A;'
+    : 'border:1.1px solid #0F172A;'
+  investCols += `
+    <div style="flex:1;background:${C.white};${totalBorderStyle}">
+      <div style="background:${C.navy};padding:11px 6px;text-align:center;">
+        <span style="font-size:10.6px;color:${C.white};font-weight:700;letter-spacing:0.3px;">Total Anual</span>
+      </div>
+      <div style="height:1px;background:#0F172A;"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:13px 5px;min-height:64px;">
+        <span style="font-size:10.8px;font-weight:700;color:${C.teal};margin-bottom:2px;">${fmt(q.total_value)}</span>
+        <span style="font-size:7.8px;color:${C.textSoft};text-align:center;">${showPlan && showTrainings ? '(Plano + Treinamentos)' : '(Valor anual)'}</span>
+      </div>
+    </div>`
+
+  // Monthly column
+  investCols += `
+    <div style="flex:1.5;background:${C.navy};display:flex;flex-direction:column;align-items:center;justify-content:center;padding:9px;border-top:1.1px solid #0F172A;border-right:1.1px solid #0F172A;border-bottom:1.1px solid #0F172A;">
+      <div style="font-size:10px;font-weight:700;color:${C.white};margin-bottom:9px;text-align:center;letter-spacing:0.2px;">Valor m\u00e9dio mensal</div>
+      <div style="width:120px;height:1.2px;background:${C.white};opacity:0.7;margin-bottom:10px;"></div>
+      <div style="font-size:18.5px;font-weight:700;color:${C.white};text-align:center;">${fmt(q.monthly_value)}<span style="font-size:13px;font-weight:700;color:${C.white};opacity:0.85;">/m\u00eas</span></div>
+    </div>`
+
+  // ── Pagina 2: tabela detalhada de treinamentos ─────────────────────────────
+  let page2Html = ''
+  if (needsPage2 && hasTrainings) {
+    const items: any[] = trainingItems
+    const subtotal    = trainDetail.subtotal ?? 0
+    const discountPct = trainDetail.plan_discount ?? 0
+    const finalValue  = trainDetail.final_value ?? 0
+
+    let tableRows = ''
+    items.forEach((item: any, i: number) => {
+      const bgColor = i % 2 === 0 ? C.white : '#F9FAFB'
+      tableRows += `
+        <div style="display:flex;padding:6px 8px;border-bottom:0.5px solid #F3F4F6;background:${bgColor};">
+          <div style="width:12%;font-size:7.5px;color:${C.text};font-weight:700;">${esc(item.trainings?.code ?? '\u2014')}</div>
+          <div style="flex:1;font-size:7.5px;color:${C.text};">${esc(item.trainings?.description ?? '\u2014')}</div>
+          <div style="width:8%;font-size:7.5px;color:${C.text};text-align:center;">${item.quantity}</div>
+          <div style="width:18%;font-size:7.5px;color:${C.text};text-align:right;">${fmt(item.unit_value)}</div>
+          <div style="width:18%;font-size:7.5px;color:${C.text};font-weight:700;text-align:right;">${fmt(item.total_value)}</div>
+        </div>`
+    })
+
+    let discountRow = ''
+    if (discountPct > 0) {
+      discountRow = `
+        <div style="display:flex;padding:7px 8px;background:#A7F3D0;">
+          <div style="flex:1;font-size:7.5px;color:${C.text};font-weight:700;">Desconto do plano (${discountPct}%)</div>
+          <div style="width:18%;font-size:7.5px;color:${C.text};font-weight:700;text-align:right;">- ${fmt(subtotal * discountPct / 100)}</div>
+        </div>`
+    }
+
+    page2Html = `
+<!-- ══════ PAGINA 2 ══════ -->
+<div class="page page-break">
+
+  <!-- Papel timbrado (background) -->
+  ${letterheadDataUri ? `<img src="${letterheadDataUri}" class="letterhead" />` : ''}
+
+  <!-- Badge ORE sobreposto ao header -->
+  <div style="position:absolute;top:30px;right:38px;background:${C.navyDark};border:0.8px solid ${C.white};border-radius:14px;padding:7px 12px;min-width:112px;text-align:center;z-index:2;">
+    <span style="font-size:10.5px;font-weight:700;color:${C.white};letter-spacing:0.5px;">${esc(q.quote_number)}</span>
+  </div>
+
+  <!-- Corpo pagina 2 -->
+  <div style="padding:100px 32px 30px;position:relative;z-index:1;">
+
+    <!-- Secao header -->
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:17px;">
+      ${svgChartCircle}
+      <span style="font-size:10.8px;font-weight:700;color:${C.navy};letter-spacing:0.6px;">DETALHAMENTO \u2014 TREINAMENTOS NR</span>
+      <div style="flex:1;height:1.1px;background:${C.teal};margin-left:4px;"></div>
+    </div>
+
+    <!-- Tabela -->
+    <div style="border:1px solid ${C.border};border-radius:5px;overflow:hidden;margin-bottom:14px;">
+      <!-- Header -->
+      <div style="display:flex;background:${C.navy};padding:7px 8px;">
+        <div style="width:12%;font-size:7.5px;color:${C.white};font-weight:700;">C\u00f3digo</div>
+        <div style="flex:1;font-size:7.5px;color:${C.white};font-weight:700;">Descri\u00e7\u00e3o</div>
+        <div style="width:8%;font-size:7.5px;color:${C.white};font-weight:700;text-align:center;">Qtd</div>
+        <div style="width:18%;font-size:7.5px;color:${C.white};font-weight:700;text-align:right;">Valor Unit.</div>
+        <div style="width:18%;font-size:7.5px;color:${C.white};font-weight:700;text-align:right;">Total</div>
+      </div>
+      <!-- Rows -->
+      ${tableRows}
+      <!-- Subtotal -->
+      <div style="display:flex;padding:7px 8px;background:${C.tealLight};">
+        <div style="flex:1;font-size:7.5px;color:${C.text};font-weight:700;">Subtotal</div>
+        <div style="width:18%;font-size:7.5px;color:${C.text};font-weight:700;text-align:right;">${fmt(subtotal)}</div>
+      </div>
+      ${discountRow}
+      <!-- Valor Final -->
+      <div style="display:flex;padding:7px 8px;background:${C.navy};">
+        <div style="flex:1;font-size:7.5px;color:${C.white};font-weight:700;">Valor Final</div>
+        <div style="width:18%;font-size:7.5px;color:${C.white};font-weight:700;text-align:right;">${fmt(finalValue)}</div>
+      </div>
+    </div>
+
+  </div><!-- /body p2 -->
+</div><!-- /page 2 -->`
+  }
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
-<title>Orçamento ${esc(q.quote_number)}</title>
+<title>Or\u00e7amento ${esc(q.quote_number)}</title>
 <style>
   @page { size: A4; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    color: ${C.darkGray};
+    color: ${C.text};
     background: ${C.white};
     font-size: 9px;
-    line-height: 1.5;
+    line-height: 1.2;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   .page {
     width: 210mm;
-    min-height: 297mm;
+    height: 297mm;
     position: relative;
     overflow: hidden;
     background: ${C.white};
   }
-  .page::before {
-    content: "";
+  .letterhead {
     position: absolute;
-    inset: 0;
-    background-image: ${letterheadDataUri ? `url("${letterheadDataUri}")` : 'none'};
-    background-size: 100% 100%;
-    background-repeat: no-repeat;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
     z-index: 0;
   }
   .page-break { page-break-before: always; }
-
-  /* ── Marca d'água ── */
-  .watermark {
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 220px;
-    font-weight: 900;
-    color: ${C.teal};
-    opacity: ${letterheadDataUri ? '0' : '0.06'};
-    z-index: 0;
-    pointer-events: none;
-    user-select: none;
-  }
-
-  /* ── Cabeçalho ── */
-  .header {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    height: 30mm;
-    background: ${letterheadDataUri ? 'transparent' : C.teal};
-    z-index: 2;
-  }
-  .header-logo {
-    display: ${letterheadDataUri ? 'none' : 'block'};
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 22px;
-    font-weight: 700;
-    color: ${C.white};
-    letter-spacing: -0.3px;
-  }
-  .header-logo span {
-    display: block;
-    font-size: 8px;
-    font-weight: 400;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    opacity: 0.85;
-    margin-top: 2px;
-  }
-  .header-badge {
-    position: absolute;
-    top: 10.5mm;
-    right: 12mm;
-    background: ${C.darkBlue};
-    padding: 3.2mm 5.2mm;
-    border-radius: 7mm;
-    border: 0.35mm solid rgba(255,255,255,0.95);
-    text-align: center;
-    min-width: 38mm;
-  }
-  .badge-value {
-    font-size: 11px;
-    font-weight: 700;
-    color: ${C.white};
-    letter-spacing: 0.5px;
-  }
-
-  /* ── Corpo ── */
-  .body { padding: 33.5mm 12.5mm 0; position: relative; z-index: 1; }
-
-  /* ── Título ── */
-  .title {
-    font-size: 20px;
-    font-weight: 700;
-    color: ${C.darkBlue};
-    margin-bottom: 13px;
-    letter-spacing: 0;
-    text-transform: uppercase;
-  }
-  .title-rule {
-    height: 1.5px;
-    background: ${C.teal};
-    margin-bottom: 23px;
-  }
-
-  /* ── 3 caixas de info ── */
-  .info-row { display: flex; gap: 13mm; margin-bottom: 18mm; }
-  .info-box {
-    flex: 1;
-    background: ${C.white};
-    border-radius: 6px;
-    padding: 3.5mm 4mm;
-    border: 1px solid ${C.tealMid};
-    display: flex;
-    align-items: center;
-    gap: 4mm;
-    min-height: 16mm;
-  }
-  .info-icon-box {
-    width: 10mm; height: 10mm; min-width: 10mm;
-    border-radius: 4px;
-    background: ${C.white};
-    border: 1px solid ${C.tealMid};
-    display: flex; align-items: center; justify-content: center;
-    font-size: 17px;
-  }
-  .info-text { flex: 1; }
-  .info-label {
-    font-size: 9px;
-    font-weight: 700;
-    color: ${C.darkBlue};
-    margin-bottom: 1px;
-  }
-  .info-value { font-size: 11px; font-weight: 700; color: ${C.darkBlue}; }
-
-  /* ── Dados do cliente ── */
-  .client-row { display: flex; gap: 7mm; margin-bottom: 12mm; }
-  .client-left { flex: 1.78; }
-  .client-grid { display: flex; flex-wrap: wrap; }
-  .client-cell {
-    width: 50%;
-    display: flex;
-    align-items: flex-start;
-    gap: 3mm;
-    margin-bottom: 7mm;
-    padding-right: 4px;
-  }
-  .client-cell-icon { font-size: 18px; color: ${C.teal}; margin-top: 1px; min-width: 18px; }
-  .client-cell-text { flex: 1; }
-  .field-label {
-    font-size: 8.5px;
-    font-weight: 700;
-    color: ${C.darkBlue};
-    margin-bottom: 1px;
-  }
-  .field-value { font-size: 9.2px; font-weight: 700; color: ${C.darkGray}; }
-  .field-value-soft { font-size: 9.2px; color: ${C.darkGray}; font-weight: 700; }
-  /* Serviços inclusos box */
-  .services-box {
-    flex: 1;
-    background: ${C.tealLight};
-    border-radius: 8px;
-    padding: 6mm;
-    border: 1px solid #98A8B3;
-    min-height: 42mm;
-  }
-  .services-head {
-    display: flex;
-    align-items: center;
-    gap: 4mm;
-    margin-bottom: 6mm;
-  }
-  .services-title {
-    font-size: 11px;
-    font-weight: 700;
-    color: ${C.darkBlue};
-    letter-spacing: 0.4px;
-  }
-  .check-item { display: flex; align-items: flex-start; margin-bottom: 5mm; gap: 4mm; }
-  .check-bullet {
-    width: 12px; height: 12px; min-width: 12px;
-    border-radius: 50%;
-    background: ${C.teal};
-    color: ${C.white};
-    font-size: 8px;
-    font-weight: 700;
-    display: flex; align-items: center; justify-content: center;
-    line-height: 1;
-    margin-top: 1px;
-  }
-  .check-text { font-size: 8.5px; color: ${C.darkGray}; flex: 1; line-height: 1.2; }
-
-  /* ── Seção divider ── */
-  .section-head {
-    display: flex;
-    align-items: center;
-    gap: 3mm;
-    margin-bottom: 7mm;
-  }
-  .section-icon {
-    width: 8mm; height: 8mm; min-width: 8mm;
-    border-radius: 50%;
-    background: ${C.teal};
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px; color: ${C.white};
-  }
-  .section-title {
-    font-size: 11px;
-    font-weight: 700;
-    color: ${C.darkBlue};
-    letter-spacing: 0.6px;
-  }
-  .section-rule {
-    flex: 1;
-    height: 1.5px;
-    background: ${C.teal};
-    margin-left: 4px;
-  }
-
-  /* ── Tabela de investimento horizontal ── */
-  .invest-table {
-    width: 100%;
-    border-collapse: collapse;
-    border: 1.2px solid #0F172A;
-    border-radius: 6px;
-    overflow: hidden;
-    margin-bottom: 0;
-  }
-  .invest-table th {
-    background: ${C.darkBlue};
-    color: ${C.white};
-    font-size: 11px;
-    font-weight: 700;
-    padding: 12px 6px;
-    text-align: center;
-    letter-spacing: 0.3px;
-    border-right: 1.2px solid #0F172A;
-  }
-  .invest-table th:last-child { border-right: none; background: ${C.darkBlue}; }
-  .invest-table td {
-    padding: 18px 8px;
-    text-align: center;
-    border-right: 1.2px solid #0F172A;
-    vertical-align: middle;
-  }
-  .invest-table td:last-child {
-    background: ${C.darkBlue};
-    border-right: none;
-    padding: 10px 12px;
-  }
-  .invest-val {
-    font-size: 12px;
-    font-weight: 700;
-    color: ${C.teal};
-    display: block;
-    margin-bottom: 2px;
-  }
-  .invest-sub { font-size: 9px; color: ${C.darkBlue}; font-weight: 700; }
-  .invest-total {
-    font-size: 12px;
-    font-weight: 700;
-    color: ${C.darkBlue};
-    display: block;
-    margin-bottom: 2px;
-  }
-  .monthly-label { font-size: 11px; font-weight: 700; color: ${C.white}; text-align: center; margin-bottom: 9px; letter-spacing: 0.2px; }
-  .monthly-rule { width: 36mm; height: 1.2px; background: rgba(255,255,255,0.8); margin: 0 auto 10px; }
-  .monthly-value { font-size: 22px; font-weight: 700; color: ${C.white}; text-align: center; }
-  .monthly-unit { display:none; }
-
-  /* ── Desconto ── */
-  .discount-bar {
-    background: ${C.successBg};
-    border-radius: 5px;
-    padding: 9px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-  .discount-badge {
-    background: ${C.success};
-    border-radius: 3px;
-    padding: 3px 6px;
-    font-size: 7px;
-    color: ${C.white};
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    white-space: nowrap;
-  }
-  .discount-text { font-size: 8px; color: ${C.successText}; flex: 1; }
-
-  /* ── Condições ── */
-  .cond-row {
-    display: flex;
-    gap: 13mm;
-    margin-bottom: 20mm;
-  }
-  .cond-item { flex: 1; display: flex; align-items: center; gap: 7px; }
-  .cond-icon-box {
-    width: 12mm; height: 12mm; min-width: 12mm;
-    border-radius: 0;
-    background: transparent;
-    border: none;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 22px; color: ${C.teal};
-  }
-  .cond-text { flex: 1; }
-  .cond-label { font-size: 8.5px; font-weight: 700; color: ${C.darkBlue}; margin-bottom: 2px; }
-  .cond-value { font-size: 9px; color: ${C.darkGray}; }
-
-  /* ── Observações ── */
-  .notes-box {
-    background: ${C.amberBg};
-    border-radius: 5px;
-    padding: 10px;
-    border-left: 3px solid ${C.amber};
-    margin-bottom: 14px;
-  }
-  .notes-label { font-size: 6.5px; color: ${C.amber}; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 3px; }
-  .notes-text { font-size: 8px; color: ${C.amberText}; }
-
-  /* ── Assinaturas ── */
-  .sig-row {
-    position: absolute;
-    left: 20mm;
-    right: 20mm;
-    bottom: 18mm;
-    display: flex;
-    gap: 35mm;
-  }
-  .sig-block { flex: 1; text-align: center; }
-  .sig-line { border-top: 1.2px solid ${C.darkBlue}; margin-bottom: 6px; }
-  .sig-name { font-size: 8px; color: ${C.darkBlue}; font-weight: 700; }
-  .sig-role { display: none; }
-
-  /* ── Rodapé ── */
-  .footer {
-    position: fixed;
-    bottom: 16px;
-    left: 36px;
-    right: 36px;
-    border-top: 0.5px solid ${C.border};
-    padding-top: 6px;
-    display: none;
-    justify-content: space-between;
-    font-size: 6.5px;
-    color: ${C.lightGray};
+  @media print {
+    body { margin: 0; }
+    .page { page-break-after: always; box-shadow: none; }
   }
 </style>
 </head>
 <body>
 
-<!-- Marca d'água -->
-<div class="watermark">d+</div>
-
-<!-- ══════ PÁGINA 1 ══════ -->
+<!-- ══════ PAGINA 1 ══════ -->
 <div class="page">
 
-  <!-- 1. Cabeçalho -->
-  <div class="header">
-    <div class="header-logo">
-      Clínica Inovassie
-      <span>Saúde e Segurança do Trabalho</span>
-    </div>
-    <div class="header-badge">
-      <div class="badge-value">${esc(q.quote_number)}</div>
-    </div>
+  <!-- Papel timbrado (background) -->
+  ${letterheadDataUri ? `<img src="${letterheadDataUri}" class="letterhead" />` : ''}
+
+  <!-- Badge ORE sobreposto ao header -->
+  <div style="position:absolute;top:30px;right:38px;background:${C.navyDark};border:0.8px solid ${C.white};border-radius:14px;padding:7px 12px;min-width:112px;text-align:center;z-index:2;">
+    <span style="font-size:10.5px;font-weight:700;color:${C.white};letter-spacing:0.5px;">${esc(q.quote_number)}</span>
   </div>
 
-  <div class="body">
+  <!-- Corpo -->
+  <div style="padding:94px 39px 30px;position:relative;z-index:1;">
 
-    <!-- 2. Título dinâmico -->
-    <div class="title">${getTitle(q.type, planType)}</div>
-    <div class="title-rule"></div>
+    <!-- Titulo -->
+    <div style="margin-bottom:19px;">
+      <div style="font-size:16.2px;font-weight:700;color:${C.navy};letter-spacing:0;margin-bottom:13px;">${getTitle(q.type, planType)}</div>
+      <div style="height:1.2px;background:${C.teal};width:100%;"></div>
+    </div>
 
-    <!-- 3. Caixas de informação -->
-    <div class="info-row">
-      <div class="info-box">
-        <div class="info-icon-box">📅</div>
-        <div class="info-text">
-          <div class="info-label">Data de emissão</div>
-          <div class="info-value">${fmtDate(q.created_at)}</div>
+    <!-- 3 cards info -->
+    <div style="display:flex;gap:24px;margin-bottom:25px;">
+      <div style="flex:1;display:flex;align-items:center;gap:7px;background:${C.white};border:1px solid ${C.tealMid};border-radius:6px;padding:10px 11px;min-height:45px;">
+        <div style="width:29px;height:29px;border-radius:4px;background:${C.white};border:1px solid ${C.tealMid};display:flex;align-items:center;justify-content:center;">
+          ${svgCalendar(18)}
+        </div>
+        <div>
+          <div style="font-size:8.2px;font-weight:700;color:${C.navy};margin-bottom:1px;">Data de emiss\u00e3o</div>
+          <div style="font-size:10.5px;font-weight:700;color:${C.navy};">${fmtDate(q.created_at)}</div>
         </div>
       </div>
-      <div class="info-box">
-        <div class="info-icon-box">📅</div>
-        <div class="info-text">
-          <div class="info-label">Válida até</div>
-          <div class="info-value">${fmtDate(q.valid_until)}</div>
+      <div style="flex:1;display:flex;align-items:center;gap:7px;background:${C.white};border:1px solid ${C.tealMid};border-radius:6px;padding:10px 11px;min-height:45px;">
+        <div style="width:29px;height:29px;border-radius:4px;background:${C.white};border:1px solid ${C.tealMid};display:flex;align-items:center;justify-content:center;">
+          ${svgCalendar(18)}
+        </div>
+        <div>
+          <div style="font-size:8.2px;font-weight:700;color:${C.navy};margin-bottom:1px;">V\u00e1lida at\u00e9</div>
+          <div style="font-size:10.5px;font-weight:700;color:${C.navy};">${fmtDate(q.valid_until)}</div>
         </div>
       </div>
-      <div class="info-box">
-        <div class="info-icon-box">📄</div>
-        <div class="info-text">
-          <div class="info-label">Tipo</div>
-          <div class="info-value">${getTypeLabel(q.type)}</div>
+      <div style="flex:1;display:flex;align-items:center;gap:7px;background:${C.white};border:1px solid ${C.tealMid};border-radius:6px;padding:10px 11px;min-height:45px;">
+        <div style="width:29px;height:29px;border-radius:4px;background:${C.white};border:1px solid ${C.tealMid};display:flex;align-items:center;justify-content:center;">
+          ${svgDoc(18)}
+        </div>
+        <div>
+          <div style="font-size:8.2px;font-weight:700;color:${C.navy};margin-bottom:1px;">Tipo</div>
+          <div style="font-size:10.5px;font-weight:700;color:${C.navy};">${getTypeLabel(q.type)}</div>
         </div>
       </div>
     </div>
 
-    <!-- 4. Dados do cliente -->
-    <div class="section-head">
-      <div class="section-icon">◉</div>
-      <span class="section-title">DADOS DO CLIENTE</span>
-      <div class="section-rule"></div>
+    <!-- DADOS DO CLIENTE -->
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:17px;">
+      ${svgUserCircle}
+      <span style="font-size:10.8px;font-weight:700;color:${C.navy};letter-spacing:0.6px;">DADOS DO CLIENTE</span>
+      <div style="flex:1;height:1.1px;background:${C.teal};margin-left:4px;"></div>
     </div>
-    <div class="client-row">
-      <!-- Campos em grid 2x4 -->
-      <div class="client-left">
-        <div class="client-grid">
-          <div class="client-cell">
-            <span class="client-cell-icon">🏢</span>
-            <div class="client-cell-text">
-              <div class="field-label">Razão social</div>
-              <div class="${company.company_name ? 'field-value' : 'field-value-soft'}">${esc(company.company_name || 'A preencher')}</div>
+
+    <div style="display:flex;gap:18px;margin-bottom:25px;">
+      <!-- Grid 2x4 de campos -->
+      <div style="flex:1.78;">
+        <div style="display:flex;flex-wrap:wrap;">
+          <!-- Razao social -->
+          <div style="width:50%;display:flex;align-items:flex-start;gap:8px;margin-bottom:18px;padding-right:4px;">
+            <div style="margin-top:1px;">${svgBuilding}</div>
+            <div style="flex:1;">
+              <div style="font-size:7.2px;color:${C.navy};font-weight:700;margin-bottom:1px;">Raz\u00e3o social</div>
+              <div style="font-size:8.4px;color:${C.text};font-weight:700;">${esc(company.company_name || company.trade_name || 'A preencher')}</div>
             </div>
           </div>
-          <div class="client-cell">
-            <span class="client-cell-icon">💼</span>
-            <div class="client-cell-text">
-              <div class="field-label">Cargo</div>
-              <div class="${company.contact_role ? 'field-value' : 'field-value-soft'}">${esc(company.contact_role || 'A preencher')}</div>
+          <!-- Cargo -->
+          <div style="width:50%;display:flex;align-items:flex-start;gap:8px;margin-bottom:18px;padding-right:4px;">
+            <div style="margin-top:1px;">${svgBriefcase}</div>
+            <div style="flex:1;">
+              <div style="font-size:7.2px;color:${C.navy};font-weight:700;margin-bottom:1px;">Cargo</div>
+              <div style="font-size:8.4px;color:${company.contact_role ? C.text : '#111827'};font-weight:700;">${esc(company.contact_role || 'A preencher')}</div>
             </div>
           </div>
-          <div class="client-cell">
-            <span class="client-cell-icon">🪪</span>
-            <div class="client-cell-text">
-              <div class="field-label">${(company.cnpj ?? '').startsWith('TEMP-') ? 'Identificação provisória' : 'CNPJ'}</div>
-              <div class="${company.cnpj ? 'field-value' : 'field-value-soft'}">${esc(company.cnpj || 'A preencher')}</div>
+          <!-- CNPJ -->
+          <div style="width:50%;display:flex;align-items:flex-start;gap:8px;margin-bottom:18px;padding-right:4px;">
+            <div style="margin-top:1px;">${svgId}</div>
+            <div style="flex:1;">
+              <div style="font-size:7.2px;color:${C.navy};font-weight:700;margin-bottom:1px;">${docLabel}</div>
+              <div style="font-size:8.4px;color:${docValue !== 'A preencher' ? C.text : '#111827'};font-weight:700;">${esc(docValue)}</div>
             </div>
           </div>
-          <div class="client-cell">
-            <span class="client-cell-icon">📞</span>
-            <div class="client-cell-text">
-              <div class="field-label">Telefone</div>
-              <div class="${company.phone ? 'field-value' : 'field-value-soft'}">${esc(company.phone || 'A preencher')}</div>
+          <!-- Telefone -->
+          <div style="width:50%;display:flex;align-items:flex-start;gap:8px;margin-bottom:18px;padding-right:4px;">
+            <div style="margin-top:1px;">${svgPhone}</div>
+            <div style="flex:1;">
+              <div style="font-size:7.2px;color:${C.navy};font-weight:700;margin-bottom:1px;">Telefone</div>
+              <div style="font-size:8.4px;color:${company.phone ? C.text : '#111827'};font-weight:700;">${esc(company.phone || 'A preencher')}</div>
             </div>
           </div>
-          <div class="client-cell">
-            <span class="client-cell-icon">🛡</span>
-            <div class="client-cell-text">
-              <div class="field-label">Grau de risco</div>
-              <div class="${company.risk_grade ? 'field-value' : 'field-value-soft'}">${company.risk_grade ? `Grau ${company.risk_grade}` : 'A preencher'}</div>
+          <!-- Grau de risco -->
+          <div style="width:50%;display:flex;align-items:flex-start;gap:8px;margin-bottom:18px;padding-right:4px;">
+            <div style="margin-top:1px;">${svgShield}</div>
+            <div style="flex:1;">
+              <div style="font-size:7.2px;color:${C.navy};font-weight:700;margin-bottom:1px;">Grau de risco</div>
+              <div style="font-size:8.4px;color:${company.risk_grade ? C.text : '#111827'};font-weight:700;">${company.risk_grade ? `Grau ${company.risk_grade}` : 'A preencher'}</div>
             </div>
           </div>
-          <div class="client-cell">
-            <span class="client-cell-icon">✉</span>
-            <div class="client-cell-text">
-              <div class="field-label">E-mail</div>
-              <div class="${company.email ? 'field-value' : 'field-value-soft'}">${esc(company.email || 'A preencher')}</div>
+          <!-- E-mail -->
+          <div style="width:50%;display:flex;align-items:flex-start;gap:8px;margin-bottom:18px;padding-right:4px;">
+            <div style="margin-top:1px;">${svgMail}</div>
+            <div style="flex:1;">
+              <div style="font-size:7.2px;color:${C.navy};font-weight:700;margin-bottom:1px;">E-mail</div>
+              <div style="font-size:8.4px;color:${company.email ? C.text : '#111827'};font-weight:700;">${esc(company.email || 'A preencher')}</div>
             </div>
           </div>
-          <div class="client-cell">
-            <span class="client-cell-icon">👤</span>
-            <div class="client-cell-text">
-              <div class="field-label">Responsável</div>
-              <div class="${company.contact_name ? 'field-value' : 'field-value-soft'}">${esc(company.contact_name || 'A preencher')}</div>
+          <!-- Responsavel -->
+          <div style="width:50%;display:flex;align-items:flex-start;gap:8px;margin-bottom:18px;padding-right:4px;">
+            <div style="margin-top:1px;">${svgUser}</div>
+            <div style="flex:1;">
+              <div style="font-size:7.2px;color:${C.navy};font-weight:700;margin-bottom:1px;">Respons\u00e1vel</div>
+              <div style="font-size:8.4px;color:${company.contact_name ? C.text : '#111827'};font-weight:700;">${esc(company.contact_name || 'A preencher')}</div>
             </div>
           </div>
-          <div class="client-cell">
-            <span class="client-cell-icon">📍</span>
-            <div class="client-cell-text">
-              <div class="field-label">Cidade / Estado</div>
-              <div class="${(company.city && company.state) ? 'field-value' : 'field-value-soft'}">${company.city && company.state ? `${esc(company.city)} / ${esc(company.state)}` : 'A preencher'}</div>
+          <!-- Cidade / Estado -->
+          <div style="width:50%;display:flex;align-items:flex-start;gap:8px;margin-bottom:18px;padding-right:4px;">
+            <div style="margin-top:1px;">${svgPin}</div>
+            <div style="flex:1;">
+              <div style="font-size:7.2px;color:${C.navy};font-weight:700;margin-bottom:1px;">Cidade / Estado</div>
+              <div style="font-size:8.4px;color:${(company.city && company.state) ? C.text : '#111827'};font-weight:700;">${company.city && company.state ? `${esc(company.city)} / ${esc(company.state)}` : 'A preencher'}</div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Serviços inclusos box -->
-      <div class="services-box">
-        <div class="services-head">
-          <div class="check-bullet" style="width:14px;height:14px;font-size:9px;">✓</div>
-          <span class="services-title">SERVIÇOS INCLUSOS</span>
+      <!-- SERVICOS INCLUSOS box -->
+      <div style="flex:1;background:${C.tealLight};border-radius:8px;padding:17px 15px;border:1px solid #98A8B3;min-height:160px;">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px;">
+          ${svgCheckCircle(14)}
+          <span style="font-size:10.2px;font-weight:700;color:${C.navy};letter-spacing:0.4px;">SERVI\u00c7OS INCLUSOS</span>
         </div>
-        ${showPlan && planType
-          ? includedServices.map(s => `
-              <div class="check-item">
-                <div class="check-bullet">✓</div>
-                <span class="check-text">${esc(s)}</span>
-              </div>`).join('')
-          : showTrainings && trainingItems.length > 0
-            ? trainingItems.slice(0, 5).map((it: any) => `
-              <div class="check-item">
-                <div class="check-bullet">✓</div>
-                <span class="check-text">${esc(it.trainings?.code ?? 'NR')} — ${esc(it.trainings?.description ?? 'Treinamento')} (${it.quantity}x)</span>
-              </div>`).join('') +
-              (trainingItems.length > 5 ? `<div style="font-size:7.5px;color:${C.medGray};margin-left:17px;">+ ${trainingItems.length - 5} treinamento(s) — ver pág. 2</div>` : '')
-            : `<div style="font-size:8px;color:${C.lightGray};">Consulte os itens contratados</div>`
-        }
+        ${servicesContent}
       </div>
     </div>
 
-    <!-- 5. Composição do investimento -->
-    <div class="section-head">
-      <div class="section-icon">◎</div>
-      <span class="section-title">COMPOSIÇÃO DO INVESTIMENTO</span>
-      <div class="section-rule"></div>
+    <!-- COMPOSICAO DO INVESTIMENTO -->
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:17px;">
+      ${svgChartCircle}
+      <span style="font-size:10.8px;font-weight:700;color:${C.navy};letter-spacing:0.6px;">COMPOSI\u00c7\u00c3O DO INVESTIMENTO</span>
+      <div style="flex:1;height:1.1px;background:${C.teal};margin-left:4px;"></div>
     </div>
 
-    <table class="invest-table">
-      <thead>
-        <tr>
-          ${showPlan ? `<th>${esc(planType ? (PLAN_LABELS[planType] ?? planType) : 'Plano SST')}</th>` : ''}
-          ${showTrainings ? `<th>Treinamentos</th>` : ''}
-          <th>Total Anual</th>
-          <th style="background:${C.navyDark};">Valor médio mensal</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          ${showPlan ? `
-          <td>
-            <span class="invest-sub">(${fmt(planFinal)}/ano)</span>
-          </td>` : ''}
-          ${showTrainings ? `
-          <td>
-            <span class="invest-val">${fmt(trainingFinal)}</span>
-            <span class="invest-sub">(Pagamento único)</span>
-          </td>` : ''}
-          <td>
-            <span class="invest-val">${fmt(q.total_value)}</span>
-            <span class="invest-sub">${showPlan && showTrainings ? '(Plano + Treinamentos)' : '(Valor anual)'}</span>
-          </td>
-          <td>
-            <div class="monthly-label">Valor médio mensal</div>
-            <div class="monthly-rule"></div>
-            <div class="monthly-value">${fmt(q.monthly_value)}<span style="font-size:13px;opacity:0.9;">/mês</span></div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div style="display:flex;min-height:96px;border-radius:4px;overflow:hidden;margin-bottom:0;">
+      ${investCols}
+    </div>
 
     <!-- Banner info -->
-    <div style="background:${C.bgInfo};border:1.2px solid #0F172A;border-top:0;border-radius:0 0 6px 6px;padding:10px 10px;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:20mm;">
-      <span style="color:${C.teal};font-size:11px;font-weight:700;line-height:1;">ℹ</span>
-      <span style="font-size:9px;color:${C.darkBlue};">O valor médio mensal considera o rateio do ${hasTrainings ? 'treinamento' : 'plano'} ao longo de 12 meses.</span>
+    <div style="background:${C.bgInfo};border-bottom-left-radius:4px;border-bottom-right-radius:4px;padding:10px;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:34px;border-left:1.1px solid #0F172A;border-right:1.1px solid #0F172A;border-bottom:1.1px solid #0F172A;">
+      ${svgInfo}
+      <span style="font-size:8.6px;color:${C.bgInfoText};">O valor m\u00e9dio mensal considera o rateio do ${showTrainings ? 'treinamento' : 'plano'} ao longo de 12 meses.</span>
     </div>
 
-    <!-- 6. Barra de desconto (condicional) -->
-    ${''}
-
-    <!-- 7. Condições comerciais -->
-    <div class="section-head">
-      <div class="section-icon">◎</div>
-      <span class="section-title">CONDIÇÕES COMERCIAIS</span>
-      <div class="section-rule"></div>
+    <!-- CONDICOES COMERCIAIS -->
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:17px;">
+      ${svgTargetCircle}
+      <span style="font-size:10.8px;font-weight:700;color:${C.navy};letter-spacing:0.6px;">CONDI\u00c7\u00d5ES COMERCIAIS</span>
+      <div style="flex:1;height:1.1px;background:${C.teal};margin-left:4px;"></div>
     </div>
-    <div class="cond-row">
-      <div class="cond-item">
-        <div class="cond-icon-box">📅</div>
-        <div class="cond-text">
-          <div class="cond-label">Validade da proposta</div>
-          <div class="cond-value">Até ${fmtDate(q.valid_until)}</div>
+    <div style="display:flex;gap:34px;margin-bottom:10px;padding:0 2px;">
+      <div style="flex:1;display:flex;align-items:center;gap:7px;">
+        <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;">
+          ${svgCalendar(18)}
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:7.6px;color:${C.navy};font-weight:700;margin-bottom:1px;">Validade da proposta</div>
+          <div style="font-size:8.2px;color:${C.text};">At\u00e9 ${fmtDate(q.valid_until)}</div>
         </div>
       </div>
-      <div class="cond-item">
-        <div class="cond-icon-box">🔄</div>
-        <div class="cond-text">
-          <div class="cond-label">Reajuste anual</div>
-          <div class="cond-value">Conforme IPCA ou negociação</div>
+      <div style="flex:1;display:flex;align-items:center;gap:7px;">
+        <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;">
+          ${svgRefresh()}
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:7.6px;color:${C.navy};font-weight:700;margin-bottom:1px;">Reajuste anual</div>
+          <div style="font-size:8.2px;color:${C.text};">Conforme IPCA ou negocia\u00e7\u00e3o</div>
         </div>
       </div>
-      <div class="cond-item">
-        <div class="cond-icon-box">💳</div>
-        <div class="cond-text">
-          <div class="cond-label">Forma de pagamento</div>
-          <div class="cond-value">${esc(q.payment_terms || 'Mensal')}</div>
+      <div style="flex:1;display:flex;align-items:center;gap:7px;">
+        <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;">
+          ${svgCard()}
         </div>
-      </div>
-    </div>
-
-    <!-- 8. Assinaturas -->
-    <div class="sig-row">
-      <div class="sig-block">
-        <div class="sig-line"></div>
-        <div class="sig-name">Assinatura do Cliente</div>
-      </div>
-      <div class="sig-block">
-        <div class="sig-line"></div>
-        <div class="sig-name">Clínica Inovassie — Responsável Comercial</div>
+        <div style="flex:1;">
+          <div style="font-size:7.6px;color:${C.navy};font-weight:700;margin-bottom:1px;">Forma de pagamento</div>
+          <div style="font-size:8.2px;color:${C.text};">${esc(q.payment_terms || 'Mensal')}</div>
+        </div>
       </div>
     </div>
 
   </div><!-- /body -->
+
+  <!-- Assinaturas - posicionadas na Page, nao no body (identico ao web sigRow) -->
+  <div style="position:absolute;left:55px;right:55px;bottom:12px;display:flex;gap:88px;z-index:1;">
+    <div style="flex:1;text-align:center;">
+      ${signatureDataUri ? `<img src="${signatureDataUri}" style="width:140px;height:50px;object-fit:contain;margin:0 auto 4px;display:block;" />` : ''}
+      <div style="border-top:1.2px solid ${C.navyDark};margin-bottom:8px;"></div>
+      <div style="font-size:7px;color:${C.navy};text-align:center;">Assinatura do Cliente</div>
+    </div>
+    <div style="flex:1;text-align:center;">
+      <div style="border-top:1.2px solid ${C.navyDark};margin-bottom:8px;"></div>
+      <div style="font-size:7px;color:${C.navy};text-align:center;">Cl\u00ednica Inovassie \u2014 Respons\u00e1vel Comercial</div>
+    </div>
+  </div>
+
 </div><!-- /page -->
 
-<!-- ══════ PÁGINA 2 — Detalhamento (condicional) ══════ -->
-${needsPage2 ? `
-<div class="page page-break">
-
-  <!-- Cabeçalho menor -->
-  <div class="header">
-    <div class="header-logo">
-      Clínica Inovassie
-    </div>
-    <div class="header-badge">
-      <div class="badge-value">${esc(q.quote_number)}</div>
-    </div>
-  </div>
-
-  <div class="body">
-    <div class="title" style="font-size:16px;margin-bottom:16px;">Detalhamento da Proposta</div>
-
-    ${trainingTableSection}
-    ${resumoInvestimentoSection}
-  </div>
-</div>` : ''}
-
-<!-- Rodapé fixo -->
-<div class="footer">
-  <span>Clínica Inovassie — Saúde e Segurança do Trabalho &nbsp;·&nbsp; Esta proposta é válida por 30 dias.</span>
-  <span>Documento gerado em ${fmtDate(new Date().toISOString())}</span>
-</div>
+${page2Html}
 
 </body>
 </html>`
 }
 
-// ─── API pública ──────────────────────────────────────────────────────────────
+// ─── API publica ────────────────────────────────────────────────────────────
 
-/** Gera e compartilha o PDF do orçamento. Retorna o URI do arquivo gerado. */
+/** Gera e compartilha o PDF do orcamento. Retorna o URI do arquivo gerado. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function shareQuotePdf(quote: any): Promise<string> {
-  const letterheadDataUri = await assetToDataUri(require('../../assets/folhadeOrçamentoTimbrado.png'))
-  const html = buildHtml(quote, letterheadDataUri)
+  // Fetch signature signed URL if exists
+  let signatureUrl: string | null = null
+  if (quote.signature_url) {
+    signatureUrl = await getSignatureUrl(quote.signature_url).catch(() => null)
+  }
+  const html = buildHtml(quote, LETTERHEAD_BASE64, signatureUrl)
   const { uri } = await Print.printToFileAsync({ html, base64: false })
 
   const canShare = await Sharing.isAvailableAsync()
   if (canShare) {
     await Sharing.shareAsync(uri, {
       mimeType: 'application/pdf',
-      dialogTitle: `Orçamento ${quote.quote_number}`,
+      dialogTitle: `Or\u00e7amento ${quote.quote_number}`,
       UTI: 'com.adobe.pdf',
     })
   }

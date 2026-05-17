@@ -9,8 +9,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { IconSearch, IconChevronRight, IconPlus } from '@tabler/icons-react-native';
+import { IconSearch, IconChevronRight, IconPlus, IconHeart, IconHeartFilled } from '@tabler/icons-react-native';
 import { useCompanies } from '@/hooks/useCompanies';
+import { useFavorites, useToggleFavorite } from '@/hooks/useFavorites';
 import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -32,13 +33,16 @@ export default function CompaniesListScreen() {
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const { data, isLoading, isError, error, refetch, isRefetching } = useCompanies();
+  const { data: favorites = [] } = useFavorites();
+  const toggleFavorite = useToggleFavorite();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return (data ?? []).filter((c) =>
       !q ||
       c.company_name.toLowerCase().includes(q) ||
-      c.cnpj?.replace(/\D/g, '').includes(q.replace(/\D/g, '')),
+      c.cnpj?.replace(/\D/g, '').includes(q.replace(/\D/g, '')) ||
+      c.cpf?.replace(/\D/g, '').includes(q.replace(/\D/g, '')),
     );
   }, [data, search]);
 
@@ -109,41 +113,56 @@ export default function CompaniesListScreen() {
               </Text>
             </Card>
           }
-          renderItem={({ item }: { item: Company }) => (
-            <Card onPress={() => router.push(`/companies/${item.id}` as any)}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Avatar name={item.company_name} size="md" />
-                <View style={{ flex: 1 }}>
-                  <Text style={{
-                    fontFamily: 'Inter_500Medium',
-                    fontSize: typography.sizes.lg,
-                    color: colors.neutral.gray900,
-                  }} numberOfLines={1}>{item.company_name}</Text>
-                  <Text style={{
-                    fontFamily: 'Inter_400Regular',
-                    fontSize: typography.sizes.sm,
-                    color: colors.neutral.gray500,
-                    marginTop: 1,
-                  }} numberOfLines={1}>
-                    {[
-                      item.cnpj || null,
-                      item.employee_count ? `${item.employee_count} func.` : null,
-                    ].filter(Boolean).join(' · ') || 'Sem dados adicionais'}
-                  </Text>
+          renderItem={({ item }: { item: Company }) => {
+            const isFav = favorites.includes(item.id);
+            return (
+              <Card onPress={() => router.push(`/companies/${item.id}` as any)}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Avatar name={item.company_name} size="md" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      fontFamily: 'Inter_500Medium',
+                      fontSize: typography.sizes.lg,
+                      color: colors.neutral.gray900,
+                    }} numberOfLines={1}>{item.company_name}</Text>
+                    <Text style={{
+                      fontFamily: 'Inter_400Regular',
+                      fontSize: typography.sizes.sm,
+                      color: colors.neutral.gray500,
+                      marginTop: 1,
+                    }} numberOfLines={1}>
+                      {[
+                        item.cnpj || item.cpf || null,
+                        item.employee_count ? `${item.employee_count} func.` : null,
+                      ].filter(Boolean).join(' · ') || 'Sem dados adicionais'}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <TouchableOpacity
+                        onPress={() => toggleFavorite.mutate(item.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        {isFav ? (
+                          <IconHeartFilled size={16} color={colors.danger[600]} />
+                        ) : (
+                          <IconHeart size={16} color={colors.neutral.gray400} strokeWidth={1.8} />
+                        )}
+                      </TouchableOpacity>
+                      {item.risk_grade != null && (
+                        <Badge
+                          label={`G${item.risk_grade}`}
+                          variant={RISK_VARIANT[item.risk_grade] ?? 'neutral'}
+                          size="sm"
+                        />
+                      )}
+                    </View>
+                    <IconChevronRight size={14} color={colors.neutral.gray400} strokeWidth={2} />
+                  </View>
                 </View>
-                <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                  {item.risk_grade != null && (
-                    <Badge
-                      label={`G${item.risk_grade}`}
-                      variant={RISK_VARIANT[item.risk_grade] ?? 'neutral'}
-                      size="sm"
-                    />
-                  )}
-                  <IconChevronRight size={14} color={colors.neutral.gray400} strokeWidth={2} />
-                </View>
-              </View>
-            </Card>
-          )}
+              </Card>
+            );
+          }}
         />
       )}
 

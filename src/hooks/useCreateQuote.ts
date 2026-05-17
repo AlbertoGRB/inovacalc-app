@@ -28,6 +28,8 @@ import {
 } from '@/types/database';
 import { isNetworkError } from '@/lib/sync';
 import { DEFAULT_TRAINING_DISCOUNTS } from '@/lib/constants';
+import { scheduleQuoteExpiryNotifications } from '@/lib/notifications';
+import { updateClickUpQuoteValue, updateClickUpPlan } from '@/lib/clickup';
 
 type CreateQuoteInput = {
   draft: QuoteDraftState;
@@ -164,6 +166,7 @@ export function useCreateQuote() {
           quote_number:  localNumber,
           payment_terms: null,
           pdf_url:       null,
+          signature_url: null,
           approved_at:   null,
           rejected_at:   null,
           created_at:    nowIso,
@@ -245,6 +248,7 @@ export function useCreateQuote() {
             quote_number:  localNumber,
             payment_terms: null,
             pdf_url:       null,
+            signature_url: null,
             approved_at:   null,
             rejected_at:   null,
             created_at:    nowIso,
@@ -267,6 +271,28 @@ export function useCreateQuote() {
       const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (_data && uuidRe.test(_data.id)) {
         queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      }
+      // Schedule expiry notifications for the new quote
+      if (_data) {
+        scheduleQuoteExpiryNotifications(
+          _data.id,
+          _data.quote_number,
+          _data.valid_until,
+        ).catch(() => {});
+      }
+      // Update ClickUp task with quote value + plan
+      if (_data && variables.draft.company?.clickup_task_id) {
+        const taskId = variables.draft.company.clickup_task_id;
+        updateClickUpQuoteValue(
+          taskId,
+          variables.draft.company as any,
+          _data.total_value ?? 0,
+        ).catch(() => {});
+        // Update plan dropdown
+        if (variables.draft.selectedPlan) {
+          const hasTrainings = variables.draft.include.trainings && variables.draft.trainings.length > 0;
+          updateClickUpPlan(taskId, variables.draft.selectedPlan, hasTrainings).catch(() => {});
+        }
       }
     },
   });

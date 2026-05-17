@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Linking, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, Linking, TouchableOpacity, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   IconMail, IconPhone, IconMapPin, IconUserCircle, IconFileText, IconCheck,
-  IconTrendingUp, IconPencil,
+  IconPencil, IconChevronRight, IconHeart, IconHeartFilled, IconTrash,
 } from '@tabler/icons-react-native';
+import { useFavorites, useToggleFavorite } from '@/hooks/useFavorites';
+import { useAuthStore } from '@/stores/authStore';
+import { deleteClickUpCompany } from '@/lib/clickup';
 import { supabase } from '@/lib/supabase';
 import { Header } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
@@ -15,7 +18,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Segmented } from '@/components/ui/Segmented';
 import { CategoryIcon, SectionLabel } from '@/components/ui/CategoryIcon';
 import { useQuotes } from '@/hooks/useQuotes';
-import { Company } from '@/types/database';
+import { QUOTE_STATUS_CONFIG } from '@/lib/constants';
+import { Company, QuoteStatus } from '@/types/database';
 import { colors, typography, radius } from '@/theme';
 
 const formatBRL = (v: number) =>
@@ -29,6 +33,12 @@ function maskCNPJDisplay(v: string) {
   return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
 }
 
+function maskCPFDisplay(v: string) {
+  const d = v.replace(/\D/g, '');
+  if (d.length !== 11) return v;
+  return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+}
+
 type Tab = 'info' | 'quotes';
 
 export default function CompanyDetailsScreen() {
@@ -36,6 +46,13 @@ export default function CompanyDetailsScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [tab, setTab] = useState<Tab>('info');
+
+  const { profile } = useAuthStore();
+  const queryClient = useQueryClient();
+  const isAdmin = profile?.role === 'ADMIN';
+  const { data: favorites = [] } = useFavorites();
+  const toggleFavorite = useToggleFavorite();
+  const [deleting, setDeleting] = useState(false);
 
   const { data: company, isLoading } = useQuery({
     queryKey: ['company', id],
@@ -60,6 +77,44 @@ export default function CompanyDetailsScreen() {
     return { total: companyQuotes.length, approved: approved.length, volume };
   }, [companyQuotes]);
 
+  const handleDeleteCompany = () => {
+    Alert.alert(
+      'Excluir empresa',
+      `Tem certeza que deseja excluir "${company?.company_name}"?\n\nTodos os orçamentos vinculados também serão excluídos. Esta ação não pode ser desfeita.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            if (!company) return;
+            setDeleting(true);
+            try {
+              // Delete ClickUp task (fire-and-forget)
+              if (company.clickup_task_id) {
+                deleteClickUpCompany(company.clickup_task_id).catch(() => {});
+              }
+              // Delete related quotes first
+              await supabase.from('quotes').delete().eq('company_id', company.id);
+              // Delete favorites
+              await supabase.from('company_favorites').delete().eq('company_id', company.id);
+              // Delete the company
+              const { error } = await supabase.from('companies').delete().eq('id', company.id);
+              if (error) throw error;
+              queryClient.invalidateQueries({ queryKey: ['companies'] });
+              queryClient.invalidateQueries({ queryKey: ['quotes'] });
+              router.replace('/companies' as any);
+            } catch {
+              Alert.alert('Erro', 'Não foi possível excluir a empresa. Tente novamente.');
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   if (isLoading || !company) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.neutral.gray50 }}>
@@ -72,27 +127,45 @@ export default function CompanyDetailsScreen() {
     <View style={{ flex: 1, backgroundColor: colors.neutral.gray50 }}>
       <Header
         title={company.company_name}
-        subtitle={company.cnpj ? maskCNPJDisplay(company.cnpj) : 'Sem CNPJ informado'}
+        subtitle={company.cnpj ? maskCNPJDisplay(company.cnpj) : company.cpf ? `CPF: ${maskCPFDisplay(company.cpf)}` : 'Sem documento informado'}
         onBack={() => router.back()}
         rightElement={
-          <TouchableOpacity
-            onPress={() => router.push(`/companies/new?editId=${company.id}` as any)}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: 4,
-              paddingHorizontal: 10, paddingVertical: 6,
-              borderRadius: radius.md,
-              backgroundColor: 'rgba(255,255,255,0.15)',
-            }}
-          >
-            <IconPencil size={14} color="#fff" strokeWidth={2} />
-            <Text style={{
-              fontFamily: 'Inter_500Medium',
-              fontSize: typography.sizes.sm,
-              color: '#fff',
-            }}>Editar</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              onPress={() => toggleFavorite.mutate(company.id)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{
+                width: 32, height: 32, borderRadius: radius.md,
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              {favorites.includes(company.id) ? (
+                <IconHeartFilled size={16} color="#F87171" />
+              ) : (
+                <IconHeart size={16} color="rgba(255,255,255,0.8)" strokeWidth={2} />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push(`/companies/new?editId=${company.id}` as any)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 4,
+                paddingHorizontal: 10, paddingVertical: 6,
+                borderRadius: radius.md,
+                backgroundColor: 'rgba(255,255,255,0.15)',
+              }}
+            >
+              <IconPencil size={14} color="#fff" strokeWidth={2} />
+              <Text style={{
+                fontFamily: 'Inter_500Medium',
+                fontSize: typography.sizes.sm,
+                color: '#fff',
+              }}>Editar</Text>
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -131,6 +204,7 @@ export default function CompanyDetailsScreen() {
 
         <View style={{ marginTop: 16 }}>
           {tab === 'info' && (
+            <>
             <Card padding="none">
               {company.cnpj && (
                 <>
@@ -138,6 +212,16 @@ export default function CompanyDetailsScreen() {
                     icon={<IconFileText size={16} color={colors.neutral.gray600} strokeWidth={1.8} />}
                     label="CNPJ"
                     value={maskCNPJDisplay(company.cnpj)}
+                  />
+                  <Divider />
+                </>
+              )}
+              {!company.cnpj && company.cpf && (
+                <>
+                  <Row
+                    icon={<IconFileText size={16} color={colors.neutral.gray600} strokeWidth={1.8} />}
+                    label="CPF"
+                    value={maskCPFDisplay(company.cpf)}
                   />
                   <Divider />
                 </>
@@ -181,7 +265,7 @@ export default function CompanyDetailsScreen() {
                   value={`${company.address ?? ''}${company.city ? ` · ${company.city}/${company.state ?? ''}` : ''}`.trim()}
                 />
               )}
-              {!company.cnpj && !company.contact_name && !company.email && !company.phone && !company.address && !company.city && (
+              {!company.cnpj && !company.cpf && !company.contact_name && !company.email && !company.phone && !company.address && !company.city && (
                 <View style={{ padding: 16 }}>
                   <Text style={{
                     fontFamily: 'Inter_400Regular',
@@ -194,6 +278,86 @@ export default function CompanyDetailsScreen() {
                 </View>
               )}
             </Card>
+
+            <TouchableOpacity
+              onPress={() => router.push(`/companies/new?editId=${company.id}` as any)}
+              activeOpacity={0.7}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 10,
+                backgroundColor: colors.neutral.white,
+                borderRadius: radius.lg,
+                borderWidth: 0.5,
+                borderColor: colors.neutral.gray200,
+                paddingHorizontal: 14, paddingVertical: 13,
+                marginTop: 12,
+              }}
+            >
+              <View style={{
+                width: 32, height: 32, borderRadius: 8,
+                backgroundColor: colors.primary[50],
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                <IconPencil size={16} color={colors.primary[600]} strokeWidth={1.8} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{
+                  fontFamily: 'Inter_500Medium',
+                  fontSize: typography.sizes.md,
+                  color: colors.neutral.gray900,
+                }}>Editar dados da empresa</Text>
+                <Text style={{
+                  fontFamily: 'Inter_400Regular',
+                  fontSize: typography.sizes.sm,
+                  color: colors.neutral.gray500,
+                  marginTop: 1,
+                }}>Alterar informações, contato e endereço</Text>
+              </View>
+              <IconChevronRight size={16} color={colors.neutral.gray400} strokeWidth={2} />
+            </TouchableOpacity>
+
+            {isAdmin && (
+              <TouchableOpacity
+                onPress={handleDeleteCompany}
+                disabled={deleting}
+                activeOpacity={0.7}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 10,
+                  backgroundColor: colors.danger[50],
+                  borderRadius: radius.lg,
+                  borderWidth: 0.5,
+                  borderColor: colors.danger[600] + '33',
+                  paddingHorizontal: 14, paddingVertical: 13,
+                  marginTop: 12,
+                  opacity: deleting ? 0.6 : 1,
+                }}
+              >
+                <View style={{
+                  width: 32, height: 32, borderRadius: 8,
+                  backgroundColor: colors.danger[600],
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {deleting ? (
+                    <ActivityIndicator size="small" color={colors.neutral.white} />
+                  ) : (
+                    <IconTrash size={16} color={colors.neutral.white} strokeWidth={1.8} />
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontFamily: 'Inter_500Medium',
+                    fontSize: typography.sizes.md,
+                    color: colors.danger[800],
+                  }}>Excluir empresa</Text>
+                  <Text style={{
+                    fontFamily: 'Inter_400Regular',
+                    fontSize: typography.sizes.sm,
+                    color: colors.danger[600],
+                    marginTop: 1,
+                  }}>Remove a empresa e todos os orçamentos</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            </>
           )}
 
           {tab === 'quotes' && (
@@ -208,30 +372,48 @@ export default function CompanyDetailsScreen() {
                   }}>Sem orçamentos ainda.</Text>
                 </Card>
               ) : (
-                companyQuotes.map(q => (
-                  <Card key={q.id} onPress={() => router.push(`/quotes/${q.id}` as any)}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <View style={{ flex: 1 }}>
+                companyQuotes.map(q => {
+                  const sc = QUOTE_STATUS_CONFIG[q.status as QuoteStatus] ?? QUOTE_STATUS_CONFIG.DRAFT;
+                  return (
+                    <Card key={q.id} onPress={() => router.push(`/quotes/${q.id}` as any)}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={{
+                              fontFamily: 'Inter_500Medium',
+                              fontSize: typography.sizes.md,
+                              color: colors.neutral.gray900,
+                            }}>{q.quote_number}</Text>
+                            <View style={{
+                              backgroundColor: sc.bg,
+                              borderRadius: radius.sm,
+                              paddingVertical: 2,
+                              paddingHorizontal: 6,
+                            }}>
+                              <Text style={{
+                                fontFamily: 'Inter_500Medium',
+                                fontSize: typography.sizes.xs,
+                                color: sc.text,
+                                letterSpacing: 0.3,
+                              }}>{sc.label.toUpperCase()}</Text>
+                            </View>
+                          </View>
+                          <Text style={{
+                            fontFamily: 'Inter_400Regular',
+                            fontSize: typography.sizes.sm,
+                            color: colors.neutral.gray500,
+                            marginTop: 1,
+                          }}>{formatDate(q.created_at)}</Text>
+                        </View>
                         <Text style={{
                           fontFamily: 'Inter_500Medium',
                           fontSize: typography.sizes.md,
                           color: colors.neutral.gray900,
-                        }}>{q.quote_number}</Text>
-                        <Text style={{
-                          fontFamily: 'Inter_400Regular',
-                          fontSize: typography.sizes.sm,
-                          color: colors.neutral.gray500,
-                          marginTop: 1,
-                        }}>{formatDate(q.created_at)}</Text>
+                        }}>{formatBRL(q.total_value ?? 0)}</Text>
                       </View>
-                      <Text style={{
-                        fontFamily: 'Inter_500Medium',
-                        fontSize: typography.sizes.md,
-                        color: colors.neutral.gray900,
-                      }}>{formatBRL(q.total_value ?? 0)}</Text>
-                    </View>
-                  </Card>
-                ))
+                    </Card>
+                  );
+                })
               )}
             </View>
           )}

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
-import { IconSearch, IconCheck, IconArrowRight, IconBuilding } from '@tabler/icons-react-native';
+import { IconSearch, IconCheck, IconArrowRight, IconBuilding, IconHeart, IconHeartFilled } from '@tabler/icons-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
@@ -9,6 +9,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Segmented } from '@/components/ui/Segmented';
 import { useCompanies } from '@/hooks/useCompanies';
+import { useFavorites, useToggleFavorite } from '@/hooks/useFavorites';
 import { useQuoteDraft } from '@/stores/quoteDraftStore';
 import { colors, typography, radius } from '@/theme';
 import { Company } from '@/types/database';
@@ -19,16 +20,33 @@ export default function SelectCompanyScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { data: companies = [], isLoading } = useCompanies();
+  const { data: favorites = [] } = useFavorites();
+  const toggleFavorite = useToggleFavorite();
   const { company, setCompany } = useQuoteDraft();
   const [filter, setFilter] = useState<Filter>('todas');
   const [search, setSearch] = useState('');
 
   const filtered = useMemo(() => {
+    let list = companies;
+
+    // Apply tab filter
+    if (filter === 'favoritas') {
+      list = list.filter(c => favorites.includes(c.id));
+    } else if (filter === 'recentes') {
+      list = [...list].sort((a, b) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+      ).slice(0, 10);
+    }
+
+    // Apply search
     const q = search.trim().toLowerCase();
-    return companies.filter(c =>
-      !q || c.company_name.toLowerCase().includes(q) || c.cnpj?.includes(q),
-    );
-  }, [companies, search, filter]);
+    if (q) {
+      list = list.filter(c =>
+        c.company_name.toLowerCase().includes(q) || c.cnpj?.includes(q) || c.cpf?.includes(q),
+      );
+    }
+    return list;
+  }, [companies, search, filter, favorites]);
 
   const handleContinue = () => {
     if (!company) return;
@@ -77,6 +95,42 @@ export default function SelectCompanyScreen() {
         />
       </View>
 
+      {/* Botão cadastrar nova empresa */}
+      <TouchableOpacity
+        onPress={() => router.push('/companies/new?redirectTo=quote' as any)}
+        activeOpacity={0.7}
+        style={{
+          flexDirection: 'row', alignItems: 'center', gap: 10,
+          marginHorizontal: 20, marginBottom: 12,
+          backgroundColor: colors.primary[50],
+          borderRadius: radius.lg,
+          borderWidth: 0.5,
+          borderColor: colors.primary[200],
+          paddingHorizontal: 14, paddingVertical: 12,
+        }}
+      >
+        <View style={{
+          width: 32, height: 32, borderRadius: 8,
+          backgroundColor: colors.primary[600],
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Text style={{ color: colors.neutral.white, fontSize: 18, fontFamily: 'Inter_500Medium' }}>+</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{
+            fontFamily: 'Inter_500Medium',
+            fontSize: typography.sizes.md,
+            color: colors.primary[900],
+          }}>Cadastrar nova empresa</Text>
+          <Text style={{
+            fontFamily: 'Inter_400Regular',
+            fontSize: typography.sizes.sm,
+            color: colors.primary[600],
+            marginTop: 1,
+          }}>Criar e continuar com o orçamento</Text>
+        </View>
+      </TouchableOpacity>
+
       {isLoading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color={colors.primary[600]} />
@@ -99,6 +153,7 @@ export default function SelectCompanyScreen() {
           }
           renderItem={({ item }: { item: Company }) => {
             const selected = company?.id === item.id;
+            const isFav = favorites.includes(item.id);
             return (
               <Card
                 variant={selected ? 'selected' : 'default'}
@@ -118,9 +173,20 @@ export default function SelectCompanyScreen() {
                       color: colors.neutral.gray500,
                       marginTop: 1,
                     }} numberOfLines={1}>
-                      {item.cnpj ?? 'Sem CNPJ'} · G{item.risk_grade ?? '-'} · {item.employee_count ?? 0} func.
+                      {item.cnpj || item.cpf || 'Sem documento'} · G{item.risk_grade ?? '-'} · {item.employee_count ?? 0} func.
                     </Text>
                   </View>
+                  <TouchableOpacity
+                    onPress={() => toggleFavorite.mutate(item.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={{ marginRight: 4 }}
+                  >
+                    {isFav ? (
+                      <IconHeartFilled size={16} color={colors.danger[600]} />
+                    ) : (
+                      <IconHeart size={16} color={colors.neutral.gray400} strokeWidth={1.8} />
+                    )}
+                  </TouchableOpacity>
                   <View style={{
                     width: 22, height: 22, borderRadius: 11,
                     borderWidth: selected ? 0 : 1,
