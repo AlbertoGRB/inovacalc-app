@@ -151,9 +151,9 @@ export default function DashboardScreen() {
           />
           <MetricCard
             icon={<IconUsers size={14} color={colors.info[600]} strokeWidth={1.8} />}
-            label="Empresas ativas"
-            value={String(metrics.activeCompanies)}
-            sub={`${companies.length} total`}
+            label="Empresas"
+            value={String(companies.length)}
+            sub={`${metrics.activeCompanies} com orcamento`}
           />
         </View>
 

@@ -24,6 +24,7 @@ import {
 import { formatCurrency, maskCNPJ } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { useOutbox, makeLocalId } from '@/stores/outboxStore';
+import { useQuoteDraft } from '@/stores/quoteDraftStore';
 import { flushOutbox, isNetworkError } from '@/lib/sync';
 import { Company, ClientType, Training } from '@/types/database';
 
@@ -96,8 +97,16 @@ export default function NewQuoteScreen() {
   const [step, setStep] = useState<Step>('company');
   const [company, setCompany] = useState<Company | null>(null);
 
-  // Pré-seleciona empresa se veio de /companies/new
+  const { pendingCompany, setPendingCompany } = useQuoteDraft();
+
+  // Pré-seleciona empresa se veio de /companies/new (via param ou store)
   useEffect(() => {
+    if (pendingCompany) {
+      setCompany(pendingCompany);
+      setStep('services');
+      setPendingCompany(null);
+      return;
+    }
     if (companyId && companies) {
       const found = companies.find(c => c.id === companyId);
       if (found) {
@@ -105,7 +114,7 @@ export default function NewQuoteScreen() {
         setStep('services');
       }
     }
-  }, [companyId, companies]);
+  }, [companyId, pendingCompany, companies]);
   const [services, setServices] = useState<Services>({ plan: false, trainings: false, avulso: false });
   const [companySearch, setCompanySearch] = useState('');
 
@@ -471,6 +480,7 @@ function StepCompany({
   selected: Company | null;
   onSelect: (c: Company) => void;
 }) {
+  const router = useRouter();
   const filtered = companies.filter(c => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
@@ -483,21 +493,67 @@ function StepCompany({
   });
 
   return (
-    <View className="flex-1">
-      <View className="px-5 pt-4 pb-2">
+    <View style={{ flex: 1 }}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
         <TextInput
-          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
           placeholder="Buscar empresa..."
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={colors.neutral.gray400}
           value={search}
           onChangeText={onSearch}
           autoCorrect={false}
+          style={{
+            backgroundColor: colors.neutral.white,
+            borderRadius: radius.lg,
+            borderWidth: 0.5,
+            borderColor: colors.neutral.gray200,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            fontFamily: 'Inter_400Regular',
+            fontSize: typography.sizes.md,
+            color: colors.neutral.gray900,
+          }}
         />
       </View>
 
+      {/* Botão cadastrar nova empresa */}
+      <TouchableOpacity
+        onPress={() => router.push('/companies/new?redirectTo=quotes/new' as any)}
+        activeOpacity={0.7}
+        style={{
+          flexDirection: 'row', alignItems: 'center', gap: 10,
+          marginHorizontal: 20, marginBottom: 12,
+          backgroundColor: colors.primary[50],
+          borderRadius: radius.lg,
+          borderWidth: 0.5,
+          borderColor: colors.primary[200],
+          paddingHorizontal: 14, paddingVertical: 12,
+        }}
+      >
+        <View style={{
+          width: 32, height: 32, borderRadius: 8,
+          backgroundColor: colors.primary[600],
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Text style={{ color: colors.neutral.white, fontSize: 18, fontFamily: 'Inter_500Medium' }}>+</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{
+            fontFamily: 'Inter_500Medium',
+            fontSize: typography.sizes.md,
+            color: colors.primary[900],
+          }}>Cadastrar nova empresa</Text>
+          <Text style={{
+            fontFamily: 'Inter_400Regular',
+            fontSize: typography.sizes.sm,
+            color: colors.primary[600],
+            marginTop: 1,
+          }}>Criar e continuar com o orçamento</Text>
+        </View>
+      </TouchableOpacity>
+
       {loading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#0891b2" />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.primary[600]} />
         </View>
       ) : (
         <FlatList
@@ -505,20 +561,43 @@ function StepCompany({
           keyExtractor={i => i.id}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
           ListEmptyComponent={
-            <View className="items-center py-16">
-              <Text className="text-slate-500">Nenhuma empresa encontrada.</Text>
+            <View style={{ alignItems: 'center', paddingVertical: 60 }}>
+              <Text style={{
+                fontFamily: 'Inter_400Regular',
+                fontSize: typography.sizes.md,
+                color: colors.neutral.gray500,
+              }}>Nenhuma empresa encontrada.</Text>
             </View>
           }
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              onPress={() => onSelect(item)}
-              className="mb-2 rounded-2xl border border-slate-200 bg-white p-4 active:opacity-80"
-              style={selected?.id === item.id ? { borderColor: '#0891b2', backgroundColor: '#f0f9ff' } : undefined}
-            >
-              <Text className="font-semibold text-slate-900" numberOfLines={1}>{item.company_name}</Text>
-              <Text className="text-xs text-slate-400 mt-0.5">{maskCNPJ(item.cnpj)} · Grau {item.risk_grade} · {item.employee_count} func.</Text>
-            </TouchableOpacity>
-          )}
+          renderItem={({ item }) => {
+            const isSelected = selected?.id === item.id;
+            return (
+              <TouchableOpacity
+                onPress={() => onSelect(item)}
+                activeOpacity={0.8}
+                style={{
+                  marginBottom: 8,
+                  borderRadius: radius.lg,
+                  borderWidth: 0.5,
+                  borderColor: isSelected ? colors.primary[600] : colors.neutral.gray200,
+                  backgroundColor: isSelected ? colors.primary[50] : colors.neutral.white,
+                  padding: 14,
+                }}
+              >
+                <Text style={{
+                  fontFamily: 'Inter_500Medium',
+                  fontSize: typography.sizes.md,
+                  color: colors.neutral.gray900,
+                }} numberOfLines={1}>{item.company_name}</Text>
+                <Text style={{
+                  fontFamily: 'Inter_400Regular',
+                  fontSize: typography.sizes.xs,
+                  color: colors.neutral.gray500,
+                  marginTop: 2,
+                }}>{maskCNPJ(item.cnpj)} · Grau {item.risk_grade} · {item.employee_count} func.</Text>
+              </TouchableOpacity>
+            );
+          }}
         />
       )}
     </View>

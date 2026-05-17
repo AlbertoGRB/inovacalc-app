@@ -58,6 +58,8 @@ export interface QuoteDraftState {
   planConfig: PlanDraftConfig;
   selectedPlan: PlanType | null;
   trainings: TrainingSelection[];
+  /** Empresa recém-criada, para auto-selecionar ao voltar para a wizard. */
+  pendingCompany: Company | null;
 
   // ── Computed ─────────────────────────────────────────────────────────────
   /**
@@ -72,6 +74,7 @@ export interface QuoteDraftState {
   setPlanConfig: (patch: Partial<PlanDraftConfig>) => void;
   setSelectedPlan: (plan: PlanType | null) => void;
   setTrainings: (trainings: TrainingSelection[]) => void;
+  setPendingCompany: (company: Company | null) => void;
   reset: () => void;
 }
 
@@ -102,6 +105,7 @@ export const useQuoteDraft = create<QuoteDraftState>((set, get) => ({
   planConfig: { ...DEFAULT_PLAN_CONFIG },
   selectedPlan: null,
   trainings: [],
+  pendingCompany: null,
 
   asClientType: (): ClientType => {
     const plan = get().selectedPlan;
@@ -122,6 +126,8 @@ export const useQuoteDraft = create<QuoteDraftState>((set, get) => ({
 
   setTrainings: (trainings) => set({ trainings }),
 
+  setPendingCompany: (company) => set({ pendingCompany: company }),
+
   reset: () =>
     set({
       company: null,
@@ -129,5 +135,6 @@ export const useQuoteDraft = create<QuoteDraftState>((set, get) => ({
       planConfig: { ...DEFAULT_PLAN_CONFIG },
       selectedPlan: null,
       trainings: [],
+      pendingCompany: null,
     }),
 }));

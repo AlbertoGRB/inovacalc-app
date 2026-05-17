@@ -1,7 +1,7 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { LETTERHEAD_BASE64 } from './letterhead';
 import { getSignatureUrl } from './signature';
+import { LETTERHEAD_BASE64 } from './letterhead';
 
 // ─── Constantes de plano ────────────────────────────────────────────────────
 
@@ -79,7 +79,11 @@ function buildIncludedServices(planType: string, employees: number, riskGrade: n
   return hasCipa ? [...services, 'CIPA (neste porte: inclu\u00edda)'] : services
 }
 
-// Letterhead base64 importado de ./letterhead.ts (embutido, sem dependencia de filesystem)
+// ─── Letterhead (imagem A4 completa como plano de fundo) ──
+
+const letterheadHtml = `
+  <img src="${LETTERHEAD_BASE64}" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;" />
+`
 
 // ─── SVG Icons (inline HTML, identicos ao web) ──────────────────────────────
 
@@ -189,7 +193,7 @@ const svgCard = (size = 18) => `<svg viewBox="0 0 24 24" width="${size}" height=
 // ─── Geracao do HTML ────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildHtml(q: any, letterheadDataUri?: string | null, signatureDataUri?: string | null): string {
+function buildHtml(q: any, signatureDataUri?: string | null): string {
   const company      = q.companies ?? {}
   const planDetail   = q.plan_quote_details?.[0] ?? null
   const trainDetail  = q.training_quote_details?.[0] ?? null
@@ -363,11 +367,11 @@ function buildHtml(q: any, letterheadDataUri?: string | null, signatureDataUri?:
 <!-- ══════ PAGINA 2 ══════ -->
 <div class="page page-break">
 
-  <!-- Papel timbrado (background) -->
-  ${letterheadDataUri ? `<img src="${letterheadDataUri}" class="letterhead" />` : ''}
+  <!-- Papel timbrado Inovassie (header + watermark) -->
+  ${letterheadHtml}
 
   <!-- Badge ORE sobreposto ao header -->
-  <div style="position:absolute;top:30px;right:38px;background:${C.navyDark};border:0.8px solid ${C.white};border-radius:14px;padding:7px 12px;min-width:112px;text-align:center;z-index:2;">
+  <div style="position:absolute;top:22px;right:38px;background:${C.navyDark};border:0.8px solid ${C.white};border-radius:14px;padding:7px 12px;min-width:112px;text-align:center;z-index:2;">
     <span style="font-size:10.5px;font-weight:700;color:${C.white};letter-spacing:0.5px;">${esc(q.quote_number)}</span>
   </div>
 
@@ -440,6 +444,7 @@ function buildHtml(q: any, letterheadDataUri?: string | null, signatureDataUri?:
     width: 100%;
     height: 100%;
     z-index: 0;
+    pointer-events: none;
   }
   .page-break { page-break-before: always; }
   @media print {
@@ -453,16 +458,16 @@ function buildHtml(q: any, letterheadDataUri?: string | null, signatureDataUri?:
 <!-- ══════ PAGINA 1 ══════ -->
 <div class="page">
 
-  <!-- Papel timbrado (background) -->
-  ${letterheadDataUri ? `<img src="${letterheadDataUri}" class="letterhead" />` : ''}
+  <!-- Papel timbrado Inovassie (header + watermark) -->
+  ${letterheadHtml}
 
   <!-- Badge ORE sobreposto ao header -->
-  <div style="position:absolute;top:30px;right:38px;background:${C.navyDark};border:0.8px solid ${C.white};border-radius:14px;padding:7px 12px;min-width:112px;text-align:center;z-index:2;">
+  <div style="position:absolute;top:28px;right:38px;background:${C.navyDark};border:0.8px solid ${C.white};border-radius:14px;padding:7px 12px;min-width:112px;text-align:center;z-index:2;">
     <span style="font-size:10.5px;font-weight:700;color:${C.white};letter-spacing:0.5px;">${esc(q.quote_number)}</span>
   </div>
 
   <!-- Corpo -->
-  <div style="padding:94px 39px 30px;position:relative;z-index:1;">
+  <div style="padding:120px 39px 30px;position:relative;z-index:1;">
 
     <!-- Titulo -->
     <div style="margin-bottom:19px;">
@@ -675,7 +680,7 @@ export async function shareQuotePdf(quote: any): Promise<string> {
   if (quote.signature_url) {
     signatureUrl = await getSignatureUrl(quote.signature_url).catch(() => null)
   }
-  const html = buildHtml(quote, LETTERHEAD_BASE64, signatureUrl)
+  const html = buildHtml(quote, signatureUrl)
   const { uri } = await Print.printToFileAsync({ html, base64: false })
 
   const canShare = await Sharing.isAvailableAsync()

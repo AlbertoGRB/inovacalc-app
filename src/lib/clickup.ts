@@ -172,14 +172,15 @@ function buildCustomFields(data: CompanyData): Array<{ id: string; value: any }>
     fields.push({ id: FIELDS.WHATSAPP, value: phone });
   }
 
-  // Endereço (location field)
-  if (data.address) {
+  // Endereço (location field — ClickUp exige lat/lng, usamos texto no campo de necessidade)
+  if (data.address || data.city) {
     const full = [
       data.address,
       data.city && data.state ? `${data.city}/${data.state}` : data.city || '',
       data.zip_code || '',
     ].filter(Boolean).join(', ');
-    fields.push({ id: FIELDS.ENDERECO, value: { formatted_address: full } });
+    // Location field requer lat/lng obrigatórios — usamos LOCAIS_SERVICO (short_text) em vez disso
+    fields.push({ id: FIELDS.LOCAIS_SERVICO, value: full });
   }
 
   // Quantidade de funcionários

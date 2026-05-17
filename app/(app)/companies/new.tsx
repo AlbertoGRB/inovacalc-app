@@ -17,6 +17,7 @@ import { maskPhone } from '@/lib/format';
 import { fetchAddressByCEP } from '@/lib/viacep';
 import { fetchCNPJData } from '@/lib/opencnpj';
 import { createClickUpCompany, updateClickUpCompany } from '@/lib/clickup';
+import { logger } from '@/lib/logger';
 import { colors, typography, radius } from '@/theme';
 
 type DocType = 'cnpj' | 'cpf';
@@ -303,13 +304,20 @@ export default function NewCompanyScreen() {
         }
 
         // Sync with ClickUp (fire-and-forget)
-        Promise.resolve(
-          supabase.from('companies').select('clickup_task_id').eq('id', editId!).single()
-        ).then(({ data: row }) => {
-          if (row?.clickup_task_id) {
-            updateClickUpCompany(row.clickup_task_id, payload as any);
+        (async () => {
+          try {
+            const { data: row } = await supabase
+              .from('companies')
+              .select('clickup_task_id')
+              .eq('id', editId!)
+              .single();
+            if (row?.clickup_task_id) {
+              await updateClickUpCompany(row.clickup_task_id, payload as any);
+            }
+          } catch (e) {
+            logger.warn('clickup', 'Falha ao atualizar ClickUp na edição', e);
           }
-        }).catch(() => {});
+        })();
 
         await queryClient.invalidateQueries({ queryKey: ['companies'] });
         await queryClient.invalidateQueries({ queryKey: ['company', editId] });
@@ -349,14 +357,26 @@ export default function NewCompanyScreen() {
 
       // Sync with ClickUp (fire-and-forget — doesn't block the user)
       if (newCompany?.id && !newCompany.id.startsWith('local_')) {
-        createClickUpCompany(payload as any).then(taskId => {
-          if (taskId) {
-            supabase.from('companies')
-              .update({ clickup_task_id: taskId })
-              .eq('id', newCompany.id)
-              .then(() => {});
+        (async () => {
+          try {
+            logger.info('clickup', `Criando task para empresa ${newCompany.id}...`);
+            const taskId = await createClickUpCompany(payload as any);
+            logger.info('clickup', `createClickUpCompany retornou: ${taskId}`);
+            if (taskId) {
+              const { error } = await supabase
+                .from('companies')
+                .update({ clickup_task_id: taskId })
+                .eq('id', newCompany.id);
+              if (error) {
+                logger.warn('clickup', 'Erro ao salvar clickup_task_id', error);
+              } else {
+                logger.info('clickup', `clickup_task_id salvo: ${taskId}`);
+              }
+            }
+          } catch (e) {
+            logger.warn('clickup', 'Falha no sync ClickUp', e);
           }
-        }).catch(() => {});
+        })();
       }
 
       await queryClient.invalidateQueries({ queryKey: ['companies'] });
