@@ -67,16 +67,47 @@ function getTypeLabel(type: string): string {
   return 'Planos e Treinamentos'
 }
 
-function buildIncludedServices(planType: string, employees: number, riskGrade: number): string[] {
-  const services = [
-    'Gest\u00e3o b\u00e1sica de documentos de SST',
-    'Orienta\u00e7\u00f5es t\u00e9cnicas e suporte',
-    'Treinamentos conforme necessidade',
-    'Emiss\u00e3o de registros e certificados',
-  ]
-  const cipaThreshold = CIPA_RULES[riskGrade] ?? 999
-  const hasCipa = planType === 'AVANCADO' && employees >= cipaThreshold
-  return hasCipa ? [...services, 'CIPA (neste porte: inclu\u00edda)'] : services
+function buildIncludedServices(planType: string, detail: any): string[] {
+  const services: string[] = []
+
+  // ── Serviços comuns a TODOS os planos ──
+  services.push('Psicossocial NR-01')
+  services.push('Quantifica\u00e7\u00e3o')
+  services.push('Responsabilidade t\u00e9cnica')
+  services.push('Entrega t\u00e9cnica TST')
+  services.push('Ru\u00eddo')
+  services.push('Deslocamento')
+  services.push('Valor GHE')
+
+  // Condicionais comuns
+  if (detail?.has_insalubridade) {
+    services.push('Insalubridade')
+  }
+  if ((detail?.periculosidade_qty ?? 0) > 0) {
+    services.push('Periculosidade')
+  }
+
+  // ── INTEGRAL e AVANÇADO ──
+  if (planType === 'INTEGRAL' || planType === 'AVANCADO') {
+    services.push('E-social')
+    services.push('Peri\u00f3dico')
+  }
+
+  // ── Apenas AVANÇADO ──
+  if (planType === 'AVANCADO') {
+    services.push('Visita t\u00e9cnica bimestral')
+    services.push('CAT e Gest\u00e3o de afastados')
+    services.push('Gest\u00e3o de EPI')
+
+    const employees = detail?.total_employees ?? 0
+    const riskGrade = detail?.risk_grade ?? 1
+    const cipaThreshold = CIPA_RULES[riskGrade] ?? 999
+    if (employees >= cipaThreshold) {
+      services.push('CIPA')
+    }
+  }
+
+  return services
 }
 
 // ─── Letterhead (imagem A4 completa como plano de fundo) ──
@@ -211,7 +242,7 @@ function buildHtml(q: any, signatureDataUri?: string | null): string {
   const needsPage2 = trainingItems.length > 6
 
   const includedServices = planType
-    ? buildIncludedServices(planType, planDetail?.total_employees ?? 0, planDetail?.risk_grade ?? company.risk_grade ?? 1)
+    ? buildIncludedServices(planType, planDetail)
     : []
 
   const showPlan      = includesPlan
