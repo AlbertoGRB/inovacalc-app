@@ -40,12 +40,12 @@ export default function SelectPlanScreen() {
     {
       key: 'ESSENCIAL', name: 'Essencial', color: colors.plans.essential,
       result: result.essencial,
-      features: ['Resp. Técnica + TST + ART', 'Ruído', 'Avaliações e Laudos', 'Deslocamento R$2,10/km'],
+      features: ['Resp. Técnica + TST + ART', 'Ruído', 'Avaliações e Laudos'],
     },
     {
       key: 'INTEGRAL', name: 'Integral', color: colors.plans.integral,
       result: result.integral,
-      features: ['Tudo do Essencial', 'Auditoria e-Social', 'Gestão e-Social + Periódicos', 'Deslocamento R$3,10/km'],
+      features: ['Tudo do Essencial', 'Auditoria e-Social', 'Gestão e-Social + Periódicos'],
       badge: { label: 'Popular', variant: 'warning' },
     },
     {

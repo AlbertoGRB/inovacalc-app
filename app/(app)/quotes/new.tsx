@@ -41,9 +41,11 @@ interface Services {
 interface PlanForm {
   riskGrade: number;
   numFuncionarios: string;
-  qtdAvaliacoes: string;
-  qtdLaudos: string;
+  totalFunctions: string;
   qtdQuantificacoes: string;
+  hasInsalubridade: boolean;
+  periculosidadeQty: string;
+  hasKm: boolean;
   kmDeslocamento: string;
   additionalDiscount: string;
 }
@@ -63,9 +65,11 @@ const AVULSO_SERVICES: { key: string; label: string; unit: string; isFixed: bool
 const DEFAULT_PLAN_FORM: PlanForm = {
   riskGrade: 1,
   numFuncionarios: '',
-  qtdAvaliacoes: '0',
-  qtdLaudos: '0',
+  totalFunctions: '1',
   qtdQuantificacoes: '0',
+  hasInsalubridade: false,
+  periculosidadeQty: '0',
+  hasKm: false,
   kmDeslocamento: '0',
   additionalDiscount: '0',
 };
@@ -377,10 +381,12 @@ export default function NewQuoteScreen() {
               {
                 riskGrade: planForm.riskGrade,
                 numFuncionarios: emps,
-                qtdAvaliacoes: parseInt(planForm.qtdAvaliacoes) || 0,
-                qtdLaudos: parseInt(planForm.qtdLaudos) || 0,
+                totalFunctions: parseInt(planForm.totalFunctions) || 1,
                 qtdQuantificacoes: parseInt(planForm.qtdQuantificacoes) || 0,
-                kmDeslocamento: parseFloat(planForm.kmDeslocamento) || 0,
+                hasInsalubridade: planForm.hasInsalubridade,
+                periculosidadeQty: parseInt(planForm.periculosidadeQty) || 0,
+                hasKm: planForm.hasKm,
+                kmDeslocamento: planForm.hasKm ? (parseFloat(planForm.kmDeslocamento) || 0) : 0,
                 additionalDiscount: parseFloat(planForm.additionalDiscount) || 0,
               },
               activeConfigs,
@@ -677,42 +683,68 @@ function StepPlan({
         ))}
       </View>
 
-      {/* Funcionários */}
-      <Text className="mb-1 text-sm font-medium text-slate-700">Nº Funcionários</Text>
-      <TextInput className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-        placeholder="Ex: 30" placeholderTextColor="#94a3b8" keyboardType="numeric"
-        value={form.numFuncionarios} onChangeText={v => f('numFuncionarios', v)} />
-
-      {/* Avaliações e Laudos */}
+      {/* Funcionários e Funções */}
       <View className="mb-4 flex-row" style={{ gap: 12 }}>
         <View className="flex-1">
-          <Text className="mb-1 text-sm font-medium text-slate-700">Avaliações de Risco</Text>
+          <Text className="mb-1 text-sm font-medium text-slate-700">Nº Funcionários</Text>
           <TextInput className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-            placeholder="0" placeholderTextColor="#94a3b8" keyboardType="numeric"
-            value={form.qtdAvaliacoes} onChangeText={v => f('qtdAvaliacoes', v)} />
+            placeholder="Ex: 30" placeholderTextColor="#94a3b8" keyboardType="numeric"
+            value={form.numFuncionarios} onChangeText={v => f('numFuncionarios', v)} />
         </View>
         <View className="flex-1">
-          <Text className="mb-1 text-sm font-medium text-slate-700">Elaboração de Laudos</Text>
+          <Text className="mb-1 text-sm font-medium text-slate-700">Nº de Funções</Text>
           <TextInput className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-            placeholder="0" placeholderTextColor="#94a3b8" keyboardType="numeric"
-            value={form.qtdLaudos} onChangeText={v => f('qtdLaudos', v)} />
+            placeholder="1" placeholderTextColor="#94a3b8" keyboardType="numeric"
+            value={form.totalFunctions} onChangeText={v => f('totalFunctions', v)} />
         </View>
       </View>
 
-      {/* Quantificação + Deslocamento */}
+      {/* Quantificação e Periculosidade */}
       <View className="mb-4 flex-row" style={{ gap: 12 }}>
         <View className="flex-1">
-          <Text className="mb-1 text-sm font-medium text-slate-700">Quantificação</Text>
+          <Text className="mb-1 text-sm font-medium text-slate-700">Quantificações</Text>
           <TextInput className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
             placeholder="0" placeholderTextColor="#94a3b8" keyboardType="numeric"
             value={form.qtdQuantificacoes} onChangeText={v => f('qtdQuantificacoes', v)} />
         </View>
         <View className="flex-1">
-          <Text className="mb-1 text-sm font-medium text-slate-700">Deslocamento (km)</Text>
+          <Text className="mb-1 text-sm font-medium text-slate-700">Periculosidade</Text>
           <TextInput className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-            placeholder="0" placeholderTextColor="#94a3b8" keyboardType="decimal-pad"
-            value={form.kmDeslocamento} onChangeText={v => f('kmDeslocamento', v)} />
+            placeholder="0" placeholderTextColor="#94a3b8" keyboardType="numeric"
+            value={form.periculosidadeQty} onChangeText={v => f('periculosidadeQty', v)} />
         </View>
+      </View>
+
+      {/* Insalubridade toggle */}
+      <View className="mb-4 flex-row items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <Text className="text-sm font-medium text-slate-700">Insalubridade</Text>
+        <Switch
+          value={form.hasInsalubridade}
+          onValueChange={v => f('hasInsalubridade', v)}
+          trackColor={{ false: '#e2e8f0', true: colors.primary[600] }}
+          thumbColor="#fff"
+        />
+      </View>
+
+      {/* KM toggle + campo */}
+      <View className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <View className="flex-row items-center justify-between">
+          <Text className="text-sm font-medium text-slate-700">Incluir KM</Text>
+          <Switch
+            value={form.hasKm}
+            onValueChange={v => f('hasKm', v)}
+            trackColor={{ false: '#e2e8f0', true: colors.primary[600] }}
+            thumbColor="#fff"
+          />
+        </View>
+        {form.hasKm && (
+          <View className="mt-3">
+            <Text className="mb-1 text-xs font-medium text-slate-500">Quilometragem</Text>
+            <TextInput className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900"
+              placeholder="0" placeholderTextColor="#94a3b8" keyboardType="decimal-pad"
+              value={form.kmDeslocamento} onChangeText={v => f('kmDeslocamento', v)} />
+          </View>
+        )}
       </View>
 
       {/* Desconto */}

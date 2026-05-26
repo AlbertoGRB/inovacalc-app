@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  ScrollView,
+  ScrollView, Switch,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -21,9 +21,11 @@ export default function PlansCalculatorScreen() {
 
   const [riskGrade, setRiskGrade] = useState(1);
   const [numFuncionarios, setNumFuncionarios] = useState('');
-  const [qtdAvaliacoes, setQtdAvaliacoes] = useState('0');
-  const [qtdLaudos, setQtdLaudos] = useState('0');
+  const [totalFunctions, setTotalFunctions] = useState('1');
   const [qtdQuantificacoes, setQtdQuantificacoes] = useState('0');
+  const [hasInsalubridade, setHasInsalubridade] = useState(false);
+  const [periculosidadeQty, setPericulosidadeQty] = useState('0');
+  const [hasKm, setHasKm] = useState(false);
   const [kmDeslocamento, setKmDeslocamento] = useState('0');
   const [additionalDiscount, setAdditionalDiscount] = useState('0');
   const [result, setResult] = useState<PlansCalculationResult | null>(null);
@@ -44,10 +46,12 @@ export default function PlansCalculatorScreen() {
       {
         riskGrade,
         numFuncionarios: emps,
-        qtdAvaliacoes: parseInt(qtdAvaliacoes) || 0,
-        qtdLaudos: parseInt(qtdLaudos) || 0,
+        totalFunctions: parseInt(totalFunctions) || 1,
         qtdQuantificacoes: parseInt(qtdQuantificacoes) || 0,
-        kmDeslocamento: parseFloat(kmDeslocamento) || 0,
+        hasInsalubridade,
+        periculosidadeQty: parseInt(periculosidadeQty) || 0,
+        hasKm,
+        kmDeslocamento: hasKm ? (parseFloat(kmDeslocamento) || 0) : 0,
         additionalDiscount: parseFloat(additionalDiscount) || 0,
       },
       activeConfigs,
@@ -104,49 +108,36 @@ export default function PlansCalculatorScreen() {
             ))}
           </View>
 
-          {/* Funcionários */}
-          <View className="mb-4">
-            <Text className="mb-1.5 text-sm font-medium text-slate-700">Nº de Funcionários</Text>
-            <TextInput
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-              placeholder="Ex: 30"
-              placeholderTextColor="#94a3b8"
-              keyboardType="numeric"
-              value={numFuncionarios}
-              onChangeText={setNumFuncionarios}
-            />
-          </View>
-
-          {/* Avaliações e Laudos */}
+          {/* Funcionários e Funções */}
           <View className="mb-4 flex-row" style={{ gap: 12 }}>
             <View className="flex-1">
-              <Text className="mb-1.5 text-sm font-medium text-slate-700">Avaliações de Risco</Text>
+              <Text className="mb-1.5 text-sm font-medium text-slate-700">Nº de Funcionários</Text>
               <TextInput
                 className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-                placeholder="0"
+                placeholder="Ex: 30"
                 placeholderTextColor="#94a3b8"
                 keyboardType="numeric"
-                value={qtdAvaliacoes}
-                onChangeText={setQtdAvaliacoes}
+                value={numFuncionarios}
+                onChangeText={setNumFuncionarios}
               />
             </View>
             <View className="flex-1">
-              <Text className="mb-1.5 text-sm font-medium text-slate-700">Elaboração de Laudos</Text>
+              <Text className="mb-1.5 text-sm font-medium text-slate-700">Nº de Funções</Text>
               <TextInput
                 className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-                placeholder="0"
+                placeholder="1"
                 placeholderTextColor="#94a3b8"
                 keyboardType="numeric"
-                value={qtdLaudos}
-                onChangeText={setQtdLaudos}
+                value={totalFunctions}
+                onChangeText={setTotalFunctions}
               />
             </View>
           </View>
 
-          {/* Quantificação e Deslocamento */}
+          {/* Quantificação e Periculosidade */}
           <View className="mb-4 flex-row" style={{ gap: 12 }}>
             <View className="flex-1">
-              <Text className="mb-1.5 text-sm font-medium text-slate-700">Quantificação</Text>
+              <Text className="mb-1.5 text-sm font-medium text-slate-700">Quantificações</Text>
               <TextInput
                 className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
                 placeholder="0"
@@ -157,16 +148,53 @@ export default function PlansCalculatorScreen() {
               />
             </View>
             <View className="flex-1">
-              <Text className="mb-1.5 text-sm font-medium text-slate-700">Deslocamento (km)</Text>
+              <Text className="mb-1.5 text-sm font-medium text-slate-700">Periculosidade</Text>
               <TextInput
                 className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
                 placeholder="0"
                 placeholderTextColor="#94a3b8"
-                keyboardType="decimal-pad"
-                value={kmDeslocamento}
-                onChangeText={setKmDeslocamento}
+                keyboardType="numeric"
+                value={periculosidadeQty}
+                onChangeText={setPericulosidadeQty}
               />
             </View>
+          </View>
+
+          {/* Insalubridade toggle */}
+          <View className="mb-4 flex-row items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <Text className="text-sm font-medium text-slate-700">Insalubridade</Text>
+            <Switch
+              value={hasInsalubridade}
+              onValueChange={setHasInsalubridade}
+              trackColor={{ false: '#e2e8f0', true: colors.primary[600] }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          {/* KM toggle + campo */}
+          <View className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-sm font-medium text-slate-700">Incluir KM</Text>
+              <Switch
+                value={hasKm}
+                onValueChange={setHasKm}
+                trackColor={{ false: '#e2e8f0', true: colors.primary[600] }}
+                thumbColor="#fff"
+              />
+            </View>
+            {hasKm && (
+              <View className="mt-3">
+                <Text className="mb-1.5 text-xs font-medium text-slate-500">Quilometragem</Text>
+                <TextInput
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900"
+                  placeholder="0"
+                  placeholderTextColor="#94a3b8"
+                  keyboardType="decimal-pad"
+                  value={kmDeslocamento}
+                  onChangeText={setKmDeslocamento}
+                />
+              </View>
+            )}
           </View>
 
           {/* Desconto adicional */}

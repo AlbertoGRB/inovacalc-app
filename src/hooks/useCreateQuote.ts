@@ -114,12 +114,12 @@ export function useCreateQuote() {
 
       const planDetailsPayload = planResult && draft.selectedPlan ? {
         risk_grade:              draft.planConfig.riskGrade,
-        total_functions:         0,
+        total_functions:         draft.planConfig.totalFunctions,
         total_employees:         draft.planConfig.numFuncionarios,
         quantification_qty:      draft.planConfig.qtdQuantificacoes,
-        has_insalubridade:       false,
-        periculosidade_qty:      0,
-        deslocamento_km:         draft.planConfig.kmDeslocamento,
+        has_insalubridade:       draft.planConfig.hasInsalubridade,
+        periculosidade_qty:      draft.planConfig.periculosidadeQty,
+        deslocamento_km:         draft.planConfig.hasKm ? draft.planConfig.kmDeslocamento : 0,
         ghe_value:               0,
         essencial_base_cost:     plansResult.essencial.baseCost,
         essencial_final_value:   plansResult.essencial.finalValueWithDiscount,

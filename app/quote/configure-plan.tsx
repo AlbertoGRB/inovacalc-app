@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Counter } from '@/components/ui/Counter';
+import { Toggle } from '@/components/ui/Toggle';
 import { SectionLabel } from '@/components/ui/CategoryIcon';
 import { useQuoteDraft } from '@/stores/quoteDraftStore';
 import { colors, typography } from '@/theme';
@@ -67,34 +68,55 @@ export default function ConfigurePlanScreen() {
             min={1}
             max={9999}
           />
+          <Divider />
+          <Row
+            label="Nº de funções"
+            value={planConfig.totalFunctions}
+            onChange={(v) => setPlanConfig({ totalFunctions: v })}
+            min={1}
+            max={999}
+          />
         </Card>
 
         <SectionLabel style={{ marginTop: 20 }}>Itens técnicos</SectionLabel>
         <Card>
           <Row
-            label="Avaliações de risco"
-            value={planConfig.qtdAvaliacoes}
-            onChange={(v) => setPlanConfig({ qtdAvaliacoes: v })}
-          />
-          <Divider />
-          <Row
-            label="Elaboração de laudos"
-            value={planConfig.qtdLaudos}
-            onChange={(v) => setPlanConfig({ qtdLaudos: v })}
-          />
-          <Divider />
-          <Row
-            label="Quantificação"
+            label="Quantificações"
             value={planConfig.qtdQuantificacoes}
             onChange={(v) => setPlanConfig({ qtdQuantificacoes: v })}
           />
           <Divider />
-          <Row
-            label="Deslocamento (km)"
-            value={planConfig.kmDeslocamento}
-            onChange={(v) => setPlanConfig({ kmDeslocamento: v })}
-            max={9999}
+          <ToggleRow
+            label="Insalubridade"
+            value={planConfig.hasInsalubridade}
+            onChange={(v) => setPlanConfig({ hasInsalubridade: v })}
           />
+          <Divider />
+          <Row
+            label="Periculosidade"
+            value={planConfig.periculosidadeQty}
+            onChange={(v) => setPlanConfig({ periculosidadeQty: v })}
+          />
+        </Card>
+
+        <SectionLabel style={{ marginTop: 20 }}>Deslocamento</SectionLabel>
+        <Card>
+          <ToggleRow
+            label="Incluir KM"
+            value={planConfig.hasKm}
+            onChange={(v) => setPlanConfig({ hasKm: v, kmDeslocamento: v ? planConfig.kmDeslocamento : 0 })}
+          />
+          {planConfig.hasKm && (
+            <>
+              <Divider />
+              <Row
+                label="Quilometragem"
+                value={planConfig.kmDeslocamento}
+                onChange={(v) => setPlanConfig({ kmDeslocamento: v })}
+                max={9999}
+              />
+            </>
+          )}
         </Card>
 
         <SectionLabel style={{ marginTop: 20 }}>Desconto adicional</SectionLabel>
@@ -155,6 +177,24 @@ function Row({ label, value, onChange, min = 0, max = 999 }: {
         color: colors.neutral.gray800,
       }}>{label}</Text>
       <Counter value={value} onChange={onChange} min={min} max={max} />
+    </View>
+  );
+}
+
+function ToggleRow({ label, value, onChange }: {
+  label: string; value: boolean; onChange: (v: boolean) => void;
+}) {
+  return (
+    <View style={{
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingVertical: 6,
+    }}>
+      <Text style={{
+        fontFamily: 'Inter_400Regular',
+        fontSize: typography.sizes.md,
+        color: colors.neutral.gray800,
+      }}>{label}</Text>
+      <Toggle value={value} onChange={onChange} />
     </View>
   );
 }

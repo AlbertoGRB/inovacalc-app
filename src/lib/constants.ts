@@ -59,7 +59,7 @@ export const DEFAULT_PLAN_CONFIGS: PlanConfig[] = [
   { id: '15', key: 'ruido',               name: 'Ruído',                        value: 237,   category: 'fixo',        description: null, updated_by: '', updated_at: '' },
   { id: '16', key: 'cipa',                name: 'CIPA',                         value: 2500,  category: 'fixo',        description: null, updated_by: '', updated_at: '' },
   { id: '17', key: 'visita_tecnica',      name: 'Visita Técnica',               value: 640,   category: 'fixo',        description: null, updated_by: '', updated_at: '' },
-  { id: '18', key: 'hora_tecnica',        name: 'Hora Técnica',                 value: 40,    category: 'unidade',     description: null, updated_by: '', updated_at: '' },
+  { id: '18', key: 'hora_tecnica',        name: 'Hora Técnica',                 value: 80,    category: 'unidade',     description: null, updated_by: '', updated_at: '' },
   { id: '19', key: 'quantificacao',       name: 'Quantificação',                value: 237,   category: 'unidade',     description: null, updated_by: '', updated_at: '' },
   { id: '20', key: 'deslocamento_km',     name: 'Deslocamento/km',              value: 2.1,   category: 'unidade',     description: null, updated_by: '', updated_at: '' },
   { id: '21', key: 'deslocamento_integral', name: 'Deslocamento Integral/km',   value: 3.1,   category: 'unidade',     description: null, updated_by: '', updated_at: '' },

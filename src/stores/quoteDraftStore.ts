@@ -30,9 +30,11 @@ export interface IncludeFlags {
 export interface PlanDraftConfig {
   riskGrade: 1 | 2 | 3 | 4;
   numFuncionarios: number;
-  qtdAvaliacoes: number;
-  qtdLaudos: number;
+  totalFunctions: number;
   qtdQuantificacoes: number;
+  hasInsalubridade: boolean;
+  periculosidadeQty: number;
+  hasKm: boolean;
   kmDeslocamento: number;
   additionalDiscount: number;
 }
@@ -80,9 +82,11 @@ const DEFAULT_INCLUDE: IncludeFlags = {
 const DEFAULT_PLAN_CONFIG: PlanDraftConfig = {
   riskGrade: 1,
   numFuncionarios: 1,
-  qtdAvaliacoes: 0,
-  qtdLaudos: 0,
+  totalFunctions: 1,
   qtdQuantificacoes: 0,
+  hasInsalubridade: false,
+  periculosidadeQty: 0,
+  hasKm: false,
   kmDeslocamento: 0,
   additionalDiscount: 0,
 };

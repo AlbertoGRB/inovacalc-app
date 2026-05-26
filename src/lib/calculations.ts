@@ -5,9 +5,11 @@ import { PlanConfig, TrainingDiscount, ClientType } from '@/types/database';
 export interface PlanCalculatorInputs {
   riskGrade: number;
   numFuncionarios: number;
-  qtdAvaliacoes: number;
-  qtdLaudos: number;
+  totalFunctions: number;
   qtdQuantificacoes: number;
+  hasInsalubridade: boolean;
+  periculosidadeQty: number;
+  hasKm: boolean;
   kmDeslocamento: number;
   additionalDiscount: number;
 }
@@ -99,10 +101,14 @@ export function calculatePlans(
   configs: PlanConfig[],
 ): PlansCalculationResult {
   const {
-    riskGrade, numFuncionarios,
-    qtdAvaliacoes, qtdLaudos, qtdQuantificacoes,
-    kmDeslocamento, additionalDiscount,
+    riskGrade, numFuncionarios, totalFunctions,
+    qtdQuantificacoes, hasInsalubridade, periculosidadeQty,
+    hasKm, kmDeslocamento, additionalDiscount,
   } = inputs;
+
+  const qtdAvaliacoes = totalFunctions;
+  const qtdLaudos = totalFunctions;
+  const effectiveKm = hasKm ? kmDeslocamento : 0;
 
   const margem = getMargem(riskGrade, configs);
   const imposto = getConfig(configs, 'imposto');
@@ -124,12 +130,16 @@ export function calculatePlans(
   // ── ESSENCIAL ──
   const ruidoEssencial = riskGrade === 4 ? 0 : ruido;
 
+  const insalubridadeValor = hasInsalubridade ? getConfig(configs, 'insalubridade') : 0;
+  const periculosidadeValor = periculosidadeQty * getConfig(configs, 'periculosidade');
+
   const custoEssencial = round2(
     (qtdAvaliacoes * horaTecnica) +
     (qtdLaudos * horaTecnica) +
     (qtdQuantificacoes * quantificacao) +
-    (kmDeslocamento * deslocEssencial) +
-    respTecnica + tst + art + ruidoEssencial
+    (effectiveKm * deslocEssencial) +
+    respTecnica + tst + art + ruidoEssencial +
+    insalubridadeValor + periculosidadeValor
   );
 
   const essencial: PlanResult = {
@@ -146,8 +156,9 @@ export function calculatePlans(
     (qtdAvaliacoes * horaTecnica) +
     (qtdLaudos * horaTecnica) +
     (qtdQuantificacoes * quantificacao) +
-    (kmDeslocamento * deslocIntegral) +
+    (effectiveKm * deslocIntegral) +
     respTecnica + tst + art + ruido +
+    insalubridadeValor + periculosidadeValor +
     auditoriaESocial + gestaoESocial + gestaoPeriodicos
   );
 
