@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  ScrollView, Switch, ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { IconChevronLeft } from '@tabler/icons-react-native';
-import { usePlanConfigs, useGheTable } from '@/hooks/useSettings';
+import { usePlanConfigs } from '@/hooks/useSettings';
 import { calculatePlans, PlansCalculationResult, PlanResult } from '@/lib/calculations';
-import { DEFAULT_PLAN_CONFIGS, DEFAULT_GHE_TABLE, PLAN_COLORS } from '@/lib/constants';
+import { DEFAULT_PLAN_CONFIGS, PLAN_COLORS } from '@/lib/constants';
 import { formatCurrency } from '@/lib/format';
-import { colors, typography, radius } from '@/theme';
+import { colors, typography } from '@/theme';
 
 const RISK_GRADES = [1, 2, 3, 4] as const;
 
@@ -18,46 +18,39 @@ export default function PlansCalculatorScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { data: configs } = usePlanConfigs();
-  const { data: gheTable } = useGheTable();
 
-  // Entradas do formulário
   const [riskGrade, setRiskGrade] = useState(1);
-  const [totalFunctions, setTotalFunctions] = useState('');
-  const [totalEmployees, setTotalEmployees] = useState('');
-  const [quantificationQty, setQuantificationQty] = useState('0');
-  const [hasInsalubridade, setHasInsalubridade] = useState(false);
-  const [periculosidadeQty, setPericulosidadeQty] = useState('0');
-  const [deslocamentoKm, setDeslocamentoKm] = useState('0');
+  const [numFuncionarios, setNumFuncionarios] = useState('');
+  const [qtdAvaliacoes, setQtdAvaliacoes] = useState('0');
+  const [qtdLaudos, setQtdLaudos] = useState('0');
+  const [qtdQuantificacoes, setQtdQuantificacoes] = useState('0');
+  const [kmDeslocamento, setKmDeslocamento] = useState('0');
   const [additionalDiscount, setAdditionalDiscount] = useState('0');
   const [result, setResult] = useState<PlansCalculationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function handleCalculate() {
     setError(null);
-    const funcs = parseInt(totalFunctions) || 0;
-    const emps = parseInt(totalEmployees) || 0;
+    const emps = parseInt(numFuncionarios) || 0;
 
-    if (funcs <= 0 || emps <= 0) {
-      setError('Informe o número de funções e de funcionários.');
+    if (emps <= 0) {
+      setError('Informe o número de funcionários.');
       return;
     }
 
     const activeConfigs = configs ?? DEFAULT_PLAN_CONFIGS;
-    const activeGhe = gheTable ?? DEFAULT_GHE_TABLE;
 
     const r = calculatePlans(
       {
         riskGrade,
-        totalFunctions: funcs,
-        totalEmployees: emps,
-        quantificationQty: parseInt(quantificationQty) || 0,
-        hasInsalubridade,
-        periculosidadeQty: parseInt(periculosidadeQty) || 0,
-        deslocamentoKm: parseFloat(deslocamentoKm) || 0,
+        numFuncionarios: emps,
+        qtdAvaliacoes: parseInt(qtdAvaliacoes) || 0,
+        qtdLaudos: parseInt(qtdLaudos) || 0,
+        qtdQuantificacoes: parseInt(qtdQuantificacoes) || 0,
+        kmDeslocamento: parseFloat(kmDeslocamento) || 0,
         additionalDiscount: parseFloat(additionalDiscount) || 0,
       },
       activeConfigs,
-      activeGhe,
     );
     setResult(r);
   }
@@ -111,72 +104,56 @@ export default function PlansCalculatorScreen() {
             ))}
           </View>
 
-          {/* Funções e Funcionários */}
-          <View className="mb-4 flex-row" style={{ gap: 12 }}>
-            <View className="flex-1">
-              <Text className="mb-1.5 text-sm font-medium text-slate-700">Nº de Funções</Text>
-              <TextInput
-                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-                placeholder="Ex: 5"
-                placeholderTextColor="#94a3b8"
-                keyboardType="numeric"
-                value={totalFunctions}
-                onChangeText={setTotalFunctions}
-              />
-            </View>
-            <View className="flex-1">
-              <Text className="mb-1.5 text-sm font-medium text-slate-700">Nº de Funcionários</Text>
-              <TextInput
-                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-                placeholder="Ex: 30"
-                placeholderTextColor="#94a3b8"
-                keyboardType="numeric"
-                value={totalEmployees}
-                onChangeText={setTotalEmployees}
-              />
-            </View>
-          </View>
-
-          {/* Quantificação */}
+          {/* Funcionários */}
           <View className="mb-4">
-            <Text className="mb-1.5 text-sm font-medium text-slate-700">
-              Qtd. Quantificação (GHEs)
-            </Text>
+            <Text className="mb-1.5 text-sm font-medium text-slate-700">Nº de Funcionários</Text>
             <TextInput
               className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-              placeholder="0"
+              placeholder="Ex: 30"
               placeholderTextColor="#94a3b8"
               keyboardType="numeric"
-              value={quantificationQty}
-              onChangeText={setQuantificationQty}
+              value={numFuncionarios}
+              onChangeText={setNumFuncionarios}
             />
           </View>
 
-          {/* Insalubridade */}
-          <View className="mb-4 flex-row items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
-            <View>
-              <Text className="text-sm font-medium text-slate-700">Laudo de Insalubridade</Text>
-              <Text className="text-xs text-slate-400">Inclui laudo fixo</Text>
-            </View>
-            <Switch
-              value={hasInsalubridade}
-              onValueChange={setHasInsalubridade}
-              trackColor={{ false: '#e2e8f0', true: '#0891b2' }}
-              thumbColor="#ffffff"
-            />
-          </View>
-
-          {/* Periculosidade e Deslocamento */}
+          {/* Avaliações e Laudos */}
           <View className="mb-4 flex-row" style={{ gap: 12 }}>
             <View className="flex-1">
-              <Text className="mb-1.5 text-sm font-medium text-slate-700">Periculosidade (GHEs)</Text>
+              <Text className="mb-1.5 text-sm font-medium text-slate-700">Avaliações de Risco</Text>
               <TextInput
                 className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
                 placeholder="0"
                 placeholderTextColor="#94a3b8"
                 keyboardType="numeric"
-                value={periculosidadeQty}
-                onChangeText={setPericulosidadeQty}
+                value={qtdAvaliacoes}
+                onChangeText={setQtdAvaliacoes}
+              />
+            </View>
+            <View className="flex-1">
+              <Text className="mb-1.5 text-sm font-medium text-slate-700">Elaboração de Laudos</Text>
+              <TextInput
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
+                placeholder="0"
+                placeholderTextColor="#94a3b8"
+                keyboardType="numeric"
+                value={qtdLaudos}
+                onChangeText={setQtdLaudos}
+              />
+            </View>
+          </View>
+
+          {/* Quantificação e Deslocamento */}
+          <View className="mb-4 flex-row" style={{ gap: 12 }}>
+            <View className="flex-1">
+              <Text className="mb-1.5 text-sm font-medium text-slate-700">Quantificação</Text>
+              <TextInput
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
+                placeholder="0"
+                placeholderTextColor="#94a3b8"
+                keyboardType="numeric"
+                value={qtdQuantificacoes}
+                onChangeText={setQtdQuantificacoes}
               />
             </View>
             <View className="flex-1">
@@ -186,8 +163,8 @@ export default function PlansCalculatorScreen() {
                 placeholder="0"
                 placeholderTextColor="#94a3b8"
                 keyboardType="decimal-pad"
-                value={deslocamentoKm}
-                onChangeText={setDeslocamentoKm}
+                value={kmDeslocamento}
+                onChangeText={setKmDeslocamento}
               />
             </View>
           </View>
@@ -226,7 +203,7 @@ export default function PlansCalculatorScreen() {
           {result && (
             <View>
               <Text className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Resultado — GHE: {formatCurrency(result.gheValue)}
+                Resultado
               </Text>
               <PlanCard label="Plano Essencial" color={PLAN_COLORS.essencial} plan={result.essencial} />
               <PlanCard label="Plano Integral"  color={PLAN_COLORS.integral}  plan={result.integral} />
@@ -250,7 +227,6 @@ function PlanCard({
 }) {
   return (
     <View className="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      {/* Cabeçalho colorido */}
       <View style={{ backgroundColor: color }} className="px-4 py-3">
         <View className="flex-row items-center justify-between">
           <Text className="text-base font-bold text-white">{label}</Text>
@@ -262,7 +238,6 @@ function PlanCard({
         </View>
       </View>
 
-      {/* Valores */}
       <View className="px-4 py-4">
         <Text className="text-xs text-slate-400 mb-0.5">Mensalidade</Text>
         <Text className="text-2xl font-bold text-slate-900">

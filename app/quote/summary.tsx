@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { CategoryIcon, SectionLabel } from '@/components/ui/CategoryIcon';
 import { useQuoteDraft } from '@/stores/quoteDraftStore';
-import { usePlanConfigs, useGheTable } from '@/hooks/useSettings';
+import { usePlanConfigs } from '@/hooks/useSettings';
 import { useCreateQuote } from '@/hooks/useCreateQuote';
 import { calculatePlans, calculateTrainings, type PlanResult } from '@/lib/calculations';
 import { DEFAULT_TRAININGS } from '@/lib/trainings-catalog';
@@ -29,7 +29,6 @@ export default function SummaryScreen() {
   const draft = useQuoteDraft();
   const { company, include, planConfig, selectedPlan, trainings, asClientType, reset } = draft;
   const { data: configs = [] } = usePlanConfigs();
-  const { data: ghe = [] } = useGheTable();
   const { data: discountsFromDB } = useTrainingDiscounts();
   const discounts = discountsFromDB ?? DEFAULT_TRAINING_DISCOUNTS;
   const createQuote = useCreateQuote();
@@ -37,11 +36,11 @@ export default function SummaryScreen() {
 
   const planResult: PlanResult | null = useMemo(() => {
     if (!include.plan || !selectedPlan) return null;
-    const r = calculatePlans(planConfig, configs, ghe);
+    const r = calculatePlans(planConfig, configs);
     return selectedPlan === 'ESSENCIAL' ? r.essencial
       : selectedPlan === 'INTEGRAL' ? r.integral
       : r.avancado;
-  }, [include.plan, selectedPlan, planConfig, configs, ghe]);
+  }, [include.plan, selectedPlan, planConfig, configs]);
 
   const trainingItems = trainings.map(sel => {
     const t = DEFAULT_TRAININGS.find(x => x.id === sel.trainingId);
@@ -90,7 +89,6 @@ export default function SummaryScreen() {
       await createQuote.mutateAsync({
         draft,
         configs,
-        ghe,
         discounts,
         status: 'DRAFT',
       });

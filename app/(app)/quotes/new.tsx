@@ -11,15 +11,15 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useAuthStore } from '@/stores/authStore';
 import { useCompanies } from '@/hooks/useCompanies';
-import { usePlanConfigs, useGheTable, useTrainings, useTrainingDiscounts } from '@/hooks/useSettings';
+import { usePlanConfigs, useTrainings, useTrainingDiscounts } from '@/hooks/useSettings';
 import {
   calculatePlans, calculateTrainings,
   PlansCalculationResult, TrainingsCalculationResult,
 } from '@/lib/calculations';
 import type { PlanConfig } from '@/types/database';
 import {
-  DEFAULT_PLAN_CONFIGS, DEFAULT_GHE_TABLE, DEFAULT_TRAINING_DISCOUNTS,
-  PLAN_COLORS, CLIENT_TYPE_OPTIONS, CIPA_RULES,
+  DEFAULT_PLAN_CONFIGS, DEFAULT_TRAINING_DISCOUNTS,
+  PLAN_COLORS, CLIENT_TYPE_OPTIONS,
 } from '@/lib/constants';
 import { formatCurrency, maskCNPJ } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
@@ -40,41 +40,33 @@ interface Services {
 
 interface PlanForm {
   riskGrade: number;
-  totalFunctions: string;
-  totalEmployees: string;
-  quantificationQty: string;
-  hasInsalubridade: boolean;
-  periculosidadeQty: string;
-  deslocamentoKm: string;
+  numFuncionarios: string;
+  qtdAvaliacoes: string;
+  qtdLaudos: string;
+  qtdQuantificacoes: string;
+  kmDeslocamento: string;
   additionalDiscount: string;
 }
 
 // Serviços avulsos disponíveis
 const AVULSO_SERVICES: { key: string; label: string; unit: string; isFixed: boolean }[] = [
-  { key: 'resp_tecnica',    label: 'Responsabilidade Técnica',            unit: 'fixo',  isFixed: true  },
-  { key: 'tst',             label: 'Entrega Técnica (TST)',                unit: 'fixo',  isFixed: true  },
-  { key: 'ruido',           label: 'Avaliação de Ruído',                   unit: 'fixo',  isFixed: true  },
-  { key: 'quantificacao',   label: 'Quantificação de GHEs',                unit: 'GHE',   isFixed: false },
-  { key: 'insalubridade',   label: 'Laudo de Insalubridade',               unit: 'fixo',  isFixed: true  },
-  { key: 'periculosidade',  label: 'Laudo de Periculosidade (por GHE)',    unit: 'GHE',   isFixed: false },
-  { key: 'deslocamento_km', label: 'Deslocamento (por km)',                unit: 'km',    isFixed: false },
-  { key: 'cipa',            label: 'CIPA',                                 unit: 'fixo',  isFixed: true  },
-  { key: 'visita_tecnica',  label: 'Visita Técnica Bimestral',             unit: 'fixo',  isFixed: true  },
-  { key: 'nr01',            label: 'Psicossocial NR-01 (por funcionário)', unit: 'func',  isFixed: false },
-  { key: 'esocial',         label: 'eSocial (por funcionário)',             unit: 'func',  isFixed: false },
-  { key: 'periodico',       label: 'Periódico (por funcionário)',           unit: 'func',  isFixed: false },
-  { key: 'cat',             label: 'CAT / Afastados (por funcionário)',     unit: 'func',  isFixed: false },
-  { key: 'epi',             label: 'Gestão de EPI (por funcionário)',       unit: 'func',  isFixed: false },
+  { key: 'resp_tecnica',         label: 'Responsabilidade Técnica',         unit: 'fixo',  isFixed: true  },
+  { key: 'hora_tecnica',         label: 'Hora Técnica (avaliação/laudo)',   unit: 'hora',  isFixed: false },
+  { key: 'ruido',                label: 'Avaliação de Ruído',              unit: 'fixo',  isFixed: true  },
+  { key: 'quantificacao',        label: 'Quantificação',                   unit: 'qtd',   isFixed: false },
+  { key: 'deslocamento_km',      label: 'Deslocamento (por km)',           unit: 'km',    isFixed: false },
+  { key: 'cipa',                 label: 'CIPA',                            unit: 'fixo',  isFixed: true  },
+  { key: 'visita_tecnica',       label: 'Visita Técnica Bimestral',        unit: 'fixo',  isFixed: true  },
+  { key: 'auditoria_esocial',    label: 'Auditoria e-Social',              unit: 'fixo',  isFixed: true  },
 ];
 
 const DEFAULT_PLAN_FORM: PlanForm = {
   riskGrade: 1,
-  totalFunctions: '',
-  totalEmployees: '',
-  quantificationQty: '0',
-  hasInsalubridade: false,
-  periculosidadeQty: '0',
-  deslocamentoKm: '0',
+  numFuncionarios: '',
+  qtdAvaliacoes: '0',
+  qtdLaudos: '0',
+  qtdQuantificacoes: '0',
+  kmDeslocamento: '0',
   additionalDiscount: '0',
 };
 
@@ -89,7 +81,6 @@ export default function NewQuoteScreen() {
   // Dados do Supabase
   const { data: companies, isLoading: loadingCompanies } = useCompanies();
   const { data: planConfigs } = usePlanConfigs();
-  const { data: gheTable } = useGheTable();
   const { data: trainings, isLoading: loadingTrainings } = useTrainings(true);
   const { data: discounts } = useTrainingDiscounts();
 
@@ -166,7 +157,6 @@ export default function NewQuoteScreen() {
   // ── Cálculos derivados ────────────────────────────────────────
 
   const activeConfigs = planConfigs ?? DEFAULT_PLAN_CONFIGS;
-  const activeGhe = gheTable ?? DEFAULT_GHE_TABLE;
   const activeDiscounts = discounts ?? DEFAULT_TRAINING_DISCOUNTS;
 
   const trainItems = useMemo(() => {
@@ -378,25 +368,22 @@ export default function NewQuoteScreen() {
           result={planResult}
           selectedPlan={selectedPlan}
           onCalculate={() => {
-            const funcs = parseInt(planForm.totalFunctions) || 0;
-            const emps = parseInt(planForm.totalEmployees) || 0;
-            if (funcs <= 0 || emps <= 0) {
-              Alert.alert('Atenção', 'Informe número de funções e funcionários.');
+            const emps = parseInt(planForm.numFuncionarios) || 0;
+            if (emps <= 0) {
+              Alert.alert('Atenção', 'Informe o número de funcionários.');
               return;
             }
             const r = calculatePlans(
               {
                 riskGrade: planForm.riskGrade,
-                totalFunctions: funcs,
-                totalEmployees: emps,
-                quantificationQty: parseInt(planForm.quantificationQty) || 0,
-                hasInsalubridade: planForm.hasInsalubridade,
-                periculosidadeQty: parseInt(planForm.periculosidadeQty) || 0,
-                deslocamentoKm: parseFloat(planForm.deslocamentoKm) || 0,
+                numFuncionarios: emps,
+                qtdAvaliacoes: parseInt(planForm.qtdAvaliacoes) || 0,
+                qtdLaudos: parseInt(planForm.qtdLaudos) || 0,
+                qtdQuantificacoes: parseInt(planForm.qtdQuantificacoes) || 0,
+                kmDeslocamento: parseFloat(planForm.kmDeslocamento) || 0,
                 additionalDiscount: parseFloat(planForm.additionalDiscount) || 0,
               },
               activeConfigs,
-              activeGhe,
             );
             setPlanResult(r);
           }}
@@ -690,48 +677,41 @@ function StepPlan({
         ))}
       </View>
 
-      {/* Funções e Funcionários */}
-      <View className="mb-4 flex-row" style={{ gap: 12 }}>
-        <View className="flex-1">
-          <Text className="mb-1 text-sm font-medium text-slate-700">Nº Funções</Text>
-          <TextInput className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-            placeholder="Ex: 5" placeholderTextColor="#94a3b8" keyboardType="numeric"
-            value={form.totalFunctions} onChangeText={v => f('totalFunctions', v)} />
-        </View>
-        <View className="flex-1">
-          <Text className="mb-1 text-sm font-medium text-slate-700">Nº Funcionários</Text>
-          <TextInput className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-            placeholder="Ex: 30" placeholderTextColor="#94a3b8" keyboardType="numeric"
-            value={form.totalEmployees} onChangeText={v => f('totalEmployees', v)} />
-        </View>
-      </View>
-
-      {/* Quantificação */}
-      <Text className="mb-1 text-sm font-medium text-slate-700">Quantificação (GHEs)</Text>
+      {/* Funcionários */}
+      <Text className="mb-1 text-sm font-medium text-slate-700">Nº Funcionários</Text>
       <TextInput className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-        placeholder="0" placeholderTextColor="#94a3b8" keyboardType="numeric"
-        value={form.quantificationQty} onChangeText={v => f('quantificationQty', v)} />
+        placeholder="Ex: 30" placeholderTextColor="#94a3b8" keyboardType="numeric"
+        value={form.numFuncionarios} onChangeText={v => f('numFuncionarios', v)} />
 
-      {/* Insalubridade */}
-      <View className="mb-4 flex-row items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
-        <Text className="text-sm font-medium text-slate-700">Laudo de Insalubridade</Text>
-        <Switch value={form.hasInsalubridade} onValueChange={v => f('hasInsalubridade', v)}
-          trackColor={{ false: '#e2e8f0', true: '#0891b2' }} thumbColor="#fff" />
-      </View>
-
-      {/* Periculosidade + Deslocamento */}
+      {/* Avaliações e Laudos */}
       <View className="mb-4 flex-row" style={{ gap: 12 }}>
         <View className="flex-1">
-          <Text className="mb-1 text-sm font-medium text-slate-700">Periculosidade (GHEs)</Text>
+          <Text className="mb-1 text-sm font-medium text-slate-700">Avaliações de Risco</Text>
           <TextInput className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
             placeholder="0" placeholderTextColor="#94a3b8" keyboardType="numeric"
-            value={form.periculosidadeQty} onChangeText={v => f('periculosidadeQty', v)} />
+            value={form.qtdAvaliacoes} onChangeText={v => f('qtdAvaliacoes', v)} />
+        </View>
+        <View className="flex-1">
+          <Text className="mb-1 text-sm font-medium text-slate-700">Elaboração de Laudos</Text>
+          <TextInput className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
+            placeholder="0" placeholderTextColor="#94a3b8" keyboardType="numeric"
+            value={form.qtdLaudos} onChangeText={v => f('qtdLaudos', v)} />
+        </View>
+      </View>
+
+      {/* Quantificação + Deslocamento */}
+      <View className="mb-4 flex-row" style={{ gap: 12 }}>
+        <View className="flex-1">
+          <Text className="mb-1 text-sm font-medium text-slate-700">Quantificação</Text>
+          <TextInput className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
+            placeholder="0" placeholderTextColor="#94a3b8" keyboardType="numeric"
+            value={form.qtdQuantificacoes} onChangeText={v => f('qtdQuantificacoes', v)} />
         </View>
         <View className="flex-1">
           <Text className="mb-1 text-sm font-medium text-slate-700">Deslocamento (km)</Text>
           <TextInput className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
             placeholder="0" placeholderTextColor="#94a3b8" keyboardType="decimal-pad"
-            value={form.deslocamentoKm} onChangeText={v => f('deslocamentoKm', v)} />
+            value={form.kmDeslocamento} onChangeText={v => f('kmDeslocamento', v)} />
         </View>
       </View>
 
@@ -750,7 +730,7 @@ function StepPlan({
       {result && (
         <>
           <Text className="mb-3 text-xs font-semibold uppercase text-slate-500">
-            Selecione o plano · GHE: {formatCurrency(result.gheValue)}
+            Selecione o plano
           </Text>
           {(['essencial', 'integral', 'avancado'] as const).map(key => {
             const plan = result[key];

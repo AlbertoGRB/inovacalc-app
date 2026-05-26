@@ -23,7 +23,7 @@ import { QuoteDraftState } from '@/stores/quoteDraftStore';
 import { calculatePlans, calculateTrainings, type PlanResult } from '@/lib/calculations';
 import { DEFAULT_TRAININGS } from '@/lib/trainings-catalog';
 import {
-  PlanConfig, GheTable, TrainingDiscount,
+  PlanConfig, TrainingDiscount,
   QuoteStatus, QuoteType, PlanType, Quote,
 } from '@/types/database';
 import { isNetworkError } from '@/lib/sync';
@@ -34,7 +34,6 @@ import { updateClickUpQuoteValue, updateClickUpPlan } from '@/lib/clickup';
 type CreateQuoteInput = {
   draft: QuoteDraftState;
   configs: PlanConfig[];
-  ghe: GheTable[];
   discounts?: TrainingDiscount[];
   status?: QuoteStatus;
   notes?: string | null;
@@ -63,12 +62,12 @@ export function useCreateQuote() {
   const userId = useAuthStore(s => s.profile?.id ?? null);
 
   return useMutation({
-    mutationFn: async ({ draft, configs, ghe, discounts, status = 'DRAFT', notes = null }: CreateQuoteInput) => {
+    mutationFn: async ({ draft, configs, discounts, status = 'DRAFT', notes = null }: CreateQuoteInput) => {
       if (!draft.company) throw new Error('Selecione uma empresa antes de salvar.');
       if (!userId)        throw new Error('Sessão inválida.');
 
       // ── 1. Cálculos locais (sem rede) ────────────────────────────────────
-      const plansResult = calculatePlans(draft.planConfig, configs, ghe);
+      const plansResult = calculatePlans(draft.planConfig, configs);
       const planResult  = draft.include.plan && draft.selectedPlan
         ? pickPlanResult(plansResult, draft.selectedPlan)
         : null;
@@ -115,13 +114,13 @@ export function useCreateQuote() {
 
       const planDetailsPayload = planResult && draft.selectedPlan ? {
         risk_grade:              draft.planConfig.riskGrade,
-        total_functions:         draft.planConfig.totalFunctions,
-        total_employees:         draft.planConfig.totalEmployees,
-        quantification_qty:      draft.planConfig.quantificationQty,
-        has_insalubridade:       draft.planConfig.hasInsalubridade,
-        periculosidade_qty:      draft.planConfig.periculosidadeQty,
-        deslocamento_km:         draft.planConfig.deslocamentoKm,
-        ghe_value:               plansResult.gheValue,
+        total_functions:         0,
+        total_employees:         draft.planConfig.numFuncionarios,
+        quantification_qty:      draft.planConfig.qtdQuantificacoes,
+        has_insalubridade:       false,
+        periculosidade_qty:      0,
+        deslocamento_km:         draft.planConfig.kmDeslocamento,
+        ghe_value:               0,
         essencial_base_cost:     plansResult.essencial.baseCost,
         essencial_final_value:   plansResult.essencial.finalValueWithDiscount,
         essencial_monthly_value: plansResult.essencial.monthlyValue,

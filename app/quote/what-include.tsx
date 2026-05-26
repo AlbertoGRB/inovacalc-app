@@ -20,7 +20,7 @@ const OPTIONS: Array<{
 }> = [
   { key: 'plan',      title: 'Plano de SST',  desc: 'Essencial, Integral ou Avançado', cat: 'plan',     icon: IconShieldCheck },
   { key: 'trainings', title: 'Treinamentos',  desc: 'NRs, combos e cursos avulsos',          cat: 'training', icon: IconSchool },
-  { key: 'extras',    title: 'Serviços avulsos', desc: 'Quantificação, ruído, periculosidade', cat: 'service',  icon: IconStethoscope },
+  { key: 'extras',    title: 'Serviços avulsos', desc: 'Quantificação, ruído e outros',        cat: 'service',  icon: IconStethoscope },
 ];
 
 export default function WhatIncludeScreen() {

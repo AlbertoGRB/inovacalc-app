@@ -11,7 +11,6 @@ const PLAN_LABELS: Record<string, string> = {
   AVANCADO:  'Plano Avançado',
 }
 
-const CIPA_RULES: Record<number, number> = { 1: 81, 2: 51, 3: 20, 4: 20 }
 
 // ─── Paleta (identica ao web ProposalPDF.tsx) ────────────────────────────────
 
@@ -67,44 +66,34 @@ function getTypeLabel(type: string): string {
   return 'Planos e Treinamentos'
 }
 
-function buildIncludedServices(planType: string, detail: any): string[] {
+function buildIncludedServices(planType: string, _detail: any): string[] {
   const services: string[] = []
 
-  // ── Serviços comuns a TODOS os planos ──
-  services.push('Psicossocial NR-01')
-  services.push('Quantifica\u00e7\u00e3o')
-  services.push('Responsabilidade t\u00e9cnica')
-  services.push('Entrega t\u00e9cnica TST')
-  services.push('Ru\u00eddo')
+  services.push('Responsabilidade técnica')
+  services.push('Entrega técnica TST')
+  services.push('ART (quando aplicável)')
+  services.push('Avaliações de risco')
+  services.push('Elaboração de laudos')
+  services.push('Quantificação')
   services.push('Deslocamento')
-  services.push('Valor GHE')
 
-  // Condicionais comuns
-  if (detail?.has_insalubridade) {
-    services.push('Insalubridade')
-  }
-  if ((detail?.periculosidade_qty ?? 0) > 0) {
-    services.push('Periculosidade')
+  if (planType === 'ESSENCIAL') {
+    services.push('Ruído (exceto GR4)')
+  } else {
+    services.push('Ruído')
   }
 
-  // ── INTEGRAL e AVANÇADO ──
   if (planType === 'INTEGRAL' || planType === 'AVANCADO') {
-    services.push('E-social')
-    services.push('Peri\u00f3dico')
+    services.push('Auditoria e-Social')
+    services.push('Gestão e-Social')
+    services.push('Gestão de Periódicos')
   }
 
-  // ── Apenas AVANÇADO ──
   if (planType === 'AVANCADO') {
-    services.push('Visita t\u00e9cnica bimestral')
-    services.push('CAT e Gest\u00e3o de afastados')
-    services.push('Gest\u00e3o de EPI')
-
-    const employees = detail?.total_employees ?? 0
-    const riskGrade = detail?.risk_grade ?? 1
-    const cipaThreshold = CIPA_RULES[riskGrade] ?? 999
-    if (employees >= cipaThreshold) {
-      services.push('CIPA')
-    }
+    services.push('Visita técnica bimestral')
+    services.push('CAT e Gestão de afastados')
+    services.push('Gestão de EPI')
+    services.push('CIPA')
   }
 
   return services

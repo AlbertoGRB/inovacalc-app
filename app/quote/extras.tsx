@@ -17,9 +17,7 @@ type Tab = 'sst' | 'desloc' | 'outros';
 type ExtrasState = {
   respTecnica: boolean;
   ruido: boolean;
-  insalubridade: boolean;
   quantificacaoQty: number;
-  periculosidadeQty: number;
   deslocamentoKm: number;
   margin: number;
 };
@@ -27,9 +25,7 @@ type ExtrasState = {
 const DEFAULT_EXTRAS: ExtrasState = {
   respTecnica: false,
   ruido: false,
-  insalubridade: false,
   quantificacaoQty: 0,
-  periculosidadeQty: 0,
   deslocamentoKm: 0,
   margin: 0,
 };
@@ -83,11 +79,6 @@ export default function ExtrasScreen() {
                 onChange={(v) => setExtras({ ruido: v })}
               />
               <Divider />
-              <ToggleRow
-                label="Insalubridade"
-                value={extras.insalubridade}
-                onChange={(v) => setExtras({ insalubridade: v })}
-              />
             </Card>
 
             <SectionLabel style={{ marginTop: 20 }}>Quantidades</SectionLabel>
@@ -96,12 +87,6 @@ export default function ExtrasScreen() {
                 label="Quantificação"
                 value={extras.quantificacaoQty}
                 onChange={(v) => setExtras({ quantificacaoQty: v })}
-              />
-              <Divider />
-              <CounterRow
-                label="Periculosidade"
-                value={extras.periculosidadeQty}
-                onChange={(v) => setExtras({ periculosidadeQty: v })}
               />
             </Card>
           </>

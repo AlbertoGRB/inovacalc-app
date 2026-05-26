@@ -28,21 +28,12 @@ export interface IncludeFlags {
 }
 
 export interface PlanDraftConfig {
-  /** Grau de risco da empresa (1–4). */
   riskGrade: 1 | 2 | 3 | 4;
-  /** Total de funções (GHE lookup). */
-  totalFunctions: number;
-  /** Total de funcionários. */
-  totalEmployees: number;
-  /** Quantidade de quantificações. */
-  quantificationQty: number;
-  /** Quantidade de laudos de periculosidade. */
-  periculosidadeQty: number;
-  /** Distância de deslocamento em km. */
-  deslocamentoKm: number;
-  /** Possui laudo de insalubridade. */
-  hasInsalubridade: boolean;
-  /** Desconto adicional aplicado manualmente (0–50%). */
+  numFuncionarios: number;
+  qtdAvaliacoes: number;
+  qtdLaudos: number;
+  qtdQuantificacoes: number;
+  kmDeslocamento: number;
   additionalDiscount: number;
 }
 
@@ -88,12 +79,11 @@ const DEFAULT_INCLUDE: IncludeFlags = {
 
 const DEFAULT_PLAN_CONFIG: PlanDraftConfig = {
   riskGrade: 1,
-  totalFunctions: 1,
-  totalEmployees: 1,
-  quantificationQty: 0,
-  periculosidadeQty: 0,
-  deslocamentoKm: 0,
-  hasInsalubridade: false,
+  numFuncionarios: 1,
+  qtdAvaliacoes: 0,
+  qtdLaudos: 0,
+  qtdQuantificacoes: 0,
+  kmDeslocamento: 0,
   additionalDiscount: 0,
 };
 

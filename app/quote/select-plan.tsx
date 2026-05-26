@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useQuoteDraft } from '@/stores/quoteDraftStore';
-import { usePlanConfigs, useGheTable } from '@/hooks/useSettings';
+import { usePlanConfigs } from '@/hooks/useSettings';
 import { calculatePlans, type PlanResult } from '@/lib/calculations';
 import { colors, typography, radius } from '@/theme';
 import type { PlanType } from '@/types/database';
@@ -29,31 +29,29 @@ export default function SelectPlanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { planConfig, selectedPlan, setSelectedPlan, include } = useQuoteDraft();
-  const { data: configs = [], isLoading: l1 } = usePlanConfigs();
-  const { data: ghe = [], isLoading: l2 } = useGheTable();
-  const loading = l1 || l2;
+  const { data: configs = [], isLoading: loading } = usePlanConfigs();
 
   const result = useMemo(() => {
     if (loading) return null;
-    return calculatePlans(planConfig, configs, ghe);
-  }, [loading, planConfig, configs, ghe]);
+    return calculatePlans(planConfig, configs);
+  }, [loading, planConfig, configs]);
 
   const plans: PlanCardData[] = result ? [
     {
       key: 'ESSENCIAL', name: 'Essencial', color: colors.plans.essential,
       result: result.essencial,
-      features: ['Responsável Técnico', 'TST', 'Ruído + GHE', 'NR-01 básico'],
+      features: ['Resp. Técnica + TST + ART', 'Ruído', 'Avaliações e Laudos', 'Deslocamento R$2,10/km'],
     },
     {
       key: 'INTEGRAL', name: 'Integral', color: colors.plans.integral,
       result: result.integral,
-      features: ['Tudo do Essencial', 'eSocial', 'Exames periódicos'],
+      features: ['Tudo do Essencial', 'Auditoria e-Social', 'Gestão e-Social + Periódicos', 'Deslocamento R$3,10/km'],
       badge: { label: 'Popular', variant: 'warning' },
     },
     {
       key: 'AVANCADO', name: 'Avançado', color: colors.plans.advanced,
       result: result.avancado,
-      features: ['Tudo do Integral', 'Visita técnica', 'CAT + EPI', result.avancado.hasCipa ? 'CIPA' : 'CIPA não aplicável'],
+      features: ['Tudo do Integral', 'Visita técnica bimestral', 'CAT + Gestão de EPI', 'CIPA'],
       badge: { label: 'Pro', variant: 'primary' },
     },
   ] : [];

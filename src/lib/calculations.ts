@@ -1,16 +1,14 @@
-import { PlanConfig, GheTable, TrainingDiscount, ClientType } from '@/types/database';
-import { CIPA_RULES } from '@/lib/constants';
+import { PlanConfig, TrainingDiscount, ClientType } from '@/types/database';
 
 // ── Tipos de entrada/saída ─────────────────────────────────────
 
 export interface PlanCalculatorInputs {
   riskGrade: number;
-  totalFunctions: number;
-  totalEmployees: number;
-  quantificationQty: number;
-  hasInsalubridade: boolean;
-  periculosidadeQty: number;
-  deslocamentoKm: number;
+  numFuncionarios: number;
+  qtdAvaliacoes: number;
+  qtdLaudos: number;
+  qtdQuantificacoes: number;
+  kmDeslocamento: number;
   additionalDiscount: number;
 }
 
@@ -27,10 +25,11 @@ export interface PlanResult {
 }
 
 export interface PlansCalculationResult {
-  gheValue: number;
+  additionalDiscount: number;
   essencial: PlanResult;
   integral: PlanResult;
   avancado: PlanResult;
+  selectedPlan: string | null;
 }
 
 export interface TrainingItem {
@@ -56,104 +55,123 @@ export interface TrainingsCalculationResult {
 
 // ── Helpers internos ───────────────────────────────────────────
 
-function getGheValue(riskGrade: number, totalFunctions: number, gheTable: GheTable[]): number {
-  const range = totalFunctions <= 5 ? 5 : totalFunctions <= 10 ? 10 : 20;
-  const row = gheTable.find(r => r.risk_grade === riskGrade && r.function_range === range);
-  return row?.value ?? 0;
-}
-
-function getMargem(riskGrade: number, configs: PlanConfig[]): number {
-  const cfg = configs.find(c => c.key === `margem_g${riskGrade}`);
-  return (cfg?.value ?? 40) / 100;
-}
-
-function getCfg(configs: PlanConfig[], key: string): number {
+function getConfig(configs: PlanConfig[], key: string): number {
   return configs.find(c => c.key === key)?.value ?? 0;
 }
 
-function applyMarginAndTax(
+function getMargem(riskGrade: number, configs: PlanConfig[]): number {
+  return getConfig(configs, `margem_g${riskGrade}`) / 100;
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function calcularCustoGestao(
+  numFuncionarios: number,
+  valorBase: number,
+  valorPorFuncionario: number
+): number {
+  if (numFuncionarios <= 10) return valorBase;
+  return (numFuncionarios - 10) * valorPorFuncionario;
+}
+
+// ── Calculadora de Planos ──────────────────────────────────────
+
+function aplicarMargemEImposto(
   baseCost: number,
   margem: number,
   imposto: number,
   additionalDiscount: number,
 ): Omit<PlanResult, 'baseCost' | 'hasCipa'> {
-  const margin = baseCost * margem;
-  const subtotal = baseCost + margin;
-  const tax = subtotal * (imposto / 100);
-  const finalValue = subtotal + tax;
-  const discountValue = finalValue * (additionalDiscount / 100);
-  const finalValueWithDiscount = finalValue - discountValue;
-  const monthlyValue = finalValueWithDiscount / 12;
+  const subtotal = round2(baseCost / (1 - margem));
+  const margin = round2(subtotal - baseCost);
+  const tax = round2(subtotal * (imposto / 100));
+  const finalValue = round2(subtotal + tax);
+  const discountValue = round2(finalValue * (additionalDiscount / 100));
+  const finalValueWithDiscount = round2(finalValue - discountValue);
+  const monthlyValue = round2(finalValueWithDiscount / 12);
   return { margin, subtotal, tax, finalValue, discountValue, finalValueWithDiscount, monthlyValue };
 }
-
-// ── Calculadora de Planos ──────────────────────────────────────
 
 export function calculatePlans(
   inputs: PlanCalculatorInputs,
   configs: PlanConfig[],
-  gheTable: GheTable[],
 ): PlansCalculationResult {
   const {
-    riskGrade, totalFunctions, totalEmployees,
-    quantificationQty, hasInsalubridade, periculosidadeQty,
-    deslocamentoKm, additionalDiscount,
+    riskGrade, numFuncionarios,
+    qtdAvaliacoes, qtdLaudos, qtdQuantificacoes,
+    kmDeslocamento, additionalDiscount,
   } = inputs;
 
-  const margem       = getMargem(riskGrade, configs);
-  const imposto      = getCfg(configs, 'imposto');
-  const gheValue     = getGheValue(riskGrade, totalFunctions, gheTable);
+  const margem = getMargem(riskGrade, configs);
+  const imposto = getConfig(configs, 'imposto');
 
-  const respTecnica  = getCfg(configs, 'resp_tecnica');
-  const tst          = getCfg(configs, 'tst');
-  const ruido        = getCfg(configs, 'ruido');
-  const cipaValor    = getCfg(configs, 'cipa');
-  const visitaTec    = getCfg(configs, 'visita_tecnica');
-  const quantUnit    = getCfg(configs, 'quantificacao');
-  const insalubUnit  = getCfg(configs, 'insalubridade');
-  const pericUnit    = getCfg(configs, 'periculosidade');
-  const deslocUnit   = getCfg(configs, 'deslocamento_km');
-  const nr01Unit     = getCfg(configs, 'nr01');
-  const esocialUnit  = getCfg(configs, 'esocial');
-  const periodicoUnit= getCfg(configs, 'periodico');
-  const catUnit      = getCfg(configs, 'cat');
-  const epiUnit      = getCfg(configs, 'epi');
+  const respTecnica = getConfig(configs, 'resp_tecnica');
+  const tst = getConfig(configs, `tst_g${riskGrade}`);
+  const art = getConfig(configs, `art_g${riskGrade}`);
+  const ruido = getConfig(configs, 'ruido');
+  const horaTecnica = getConfig(configs, 'hora_tecnica');
+  const quantificacao = getConfig(configs, 'quantificacao');
+  const deslocEssencial = getConfig(configs, 'deslocamento_km');
+  const deslocIntegral = getConfig(configs, 'deslocamento_integral');
+  const auditoriaESocial = getConfig(configs, 'auditoria_esocial');
+  const gestaoBase = getConfig(configs, 'gestao_base');
+  const gestaoPorFunc = getConfig(configs, 'gestao_por_funcionario');
+  const visitaTecnica = getConfig(configs, 'visita_tecnica');
+  const cipaValor = getConfig(configs, 'cipa');
 
-  const custoEssencial =
-    respTecnica + tst + ruido + gheValue +
-    nr01Unit * totalEmployees +
-    quantUnit * quantificationQty +
-    (hasInsalubridade ? insalubUnit : 0) +
-    pericUnit * periculosidadeQty +
-    deslocUnit * deslocamentoKm;
+  // ── ESSENCIAL ──
+  const ruidoEssencial = riskGrade === 4 ? 0 : ruido;
+
+  const custoEssencial = round2(
+    (qtdAvaliacoes * horaTecnica) +
+    (qtdLaudos * horaTecnica) +
+    (qtdQuantificacoes * quantificacao) +
+    (kmDeslocamento * deslocEssencial) +
+    respTecnica + tst + art + ruidoEssencial
+  );
 
   const essencial: PlanResult = {
     baseCost: custoEssencial,
-    ...applyMarginAndTax(custoEssencial, margem, imposto, additionalDiscount),
+    ...aplicarMargemEImposto(custoEssencial, margem, imposto, additionalDiscount),
     hasCipa: false,
   };
 
-  const custoIntegral = custoEssencial + esocialUnit * totalEmployees + periodicoUnit * totalEmployees;
+  // ── INTEGRAL ──
+  const gestaoESocial = calcularCustoGestao(numFuncionarios, gestaoBase, gestaoPorFunc);
+  const gestaoPeriodicos = calcularCustoGestao(numFuncionarios, gestaoBase, gestaoPorFunc);
+
+  const custoIntegral = round2(
+    (qtdAvaliacoes * horaTecnica) +
+    (qtdLaudos * horaTecnica) +
+    (qtdQuantificacoes * quantificacao) +
+    (kmDeslocamento * deslocIntegral) +
+    respTecnica + tst + art + ruido +
+    auditoriaESocial + gestaoESocial + gestaoPeriodicos
+  );
+
   const integral: PlanResult = {
     baseCost: custoIntegral,
-    ...applyMarginAndTax(custoIntegral, margem, imposto, additionalDiscount),
+    ...aplicarMargemEImposto(custoIntegral, margem, imposto, additionalDiscount),
     hasCipa: false,
   };
 
-  const hasCipa = totalEmployees >= (CIPA_RULES[riskGrade] ?? 999);
-  const custoAvancado =
-    custoIntegral + visitaTec +
-    catUnit * totalEmployees +
-    epiUnit * totalEmployees +
-    (hasCipa ? cipaValor : 0);
+  // ── AVANÇADO ──
+  const catGestao = calcularCustoGestao(numFuncionarios, gestaoBase, gestaoPorFunc);
+  const epiGestao = calcularCustoGestao(numFuncionarios, gestaoBase, gestaoPorFunc);
+
+  const custoAvancado = round2(
+    custoIntegral + visitaTecnica + catGestao + epiGestao + cipaValor
+  );
 
   const avancado: PlanResult = {
     baseCost: custoAvancado,
-    ...applyMarginAndTax(custoAvancado, margem, imposto, additionalDiscount),
-    hasCipa,
+    ...aplicarMargemEImposto(custoAvancado, margem, imposto, additionalDiscount),
+    hasCipa: true,
   };
 
-  return { gheValue, essencial, integral, avancado };
+  return { additionalDiscount, essencial, integral, avancado, selectedPlan: null };
 }
 
 // ── Calculadora de Treinamentos ────────────────────────────────

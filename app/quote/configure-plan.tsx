@@ -6,10 +6,9 @@ import { Header } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Counter } from '@/components/ui/Counter';
-import { Toggle } from '@/components/ui/Toggle';
 import { SectionLabel } from '@/components/ui/CategoryIcon';
 import { useQuoteDraft } from '@/stores/quoteDraftStore';
-import { colors, typography, radius } from '@/theme';
+import { colors, typography } from '@/theme';
 
 const GRADES = [1, 2, 3, 4] as const;
 
@@ -62,56 +61,40 @@ export default function ConfigurePlanScreen() {
         <SectionLabel>Dimensões</SectionLabel>
         <Card>
           <Row
-            label="Total de funções"
-            value={planConfig.totalFunctions}
-            onChange={(v) => setPlanConfig({ totalFunctions: v })}
-            min={1}
-          />
-          <Divider />
-          <Row
-            label="Total de funcionários"
-            value={planConfig.totalEmployees}
-            onChange={(v) => setPlanConfig({ totalEmployees: v })}
+            label="Nº de funcionários"
+            value={planConfig.numFuncionarios}
+            onChange={(v) => setPlanConfig({ numFuncionarios: v })}
             min={1}
             max={9999}
           />
         </Card>
 
-        <SectionLabel style={{ marginTop: 20 }}>Itens variáveis</SectionLabel>
+        <SectionLabel style={{ marginTop: 20 }}>Itens técnicos</SectionLabel>
         <Card>
           <Row
-            label="Quantificação"
-            value={planConfig.quantificationQty}
-            onChange={(v) => setPlanConfig({ quantificationQty: v })}
+            label="Avaliações de risco"
+            value={planConfig.qtdAvaliacoes}
+            onChange={(v) => setPlanConfig({ qtdAvaliacoes: v })}
           />
           <Divider />
           <Row
-            label="Periculosidade"
-            value={planConfig.periculosidadeQty}
-            onChange={(v) => setPlanConfig({ periculosidadeQty: v })}
+            label="Elaboração de laudos"
+            value={planConfig.qtdLaudos}
+            onChange={(v) => setPlanConfig({ qtdLaudos: v })}
+          />
+          <Divider />
+          <Row
+            label="Quantificação"
+            value={planConfig.qtdQuantificacoes}
+            onChange={(v) => setPlanConfig({ qtdQuantificacoes: v })}
           />
           <Divider />
           <Row
             label="Deslocamento (km)"
-            value={planConfig.deslocamentoKm}
-            onChange={(v) => setPlanConfig({ deslocamentoKm: v })}
+            value={planConfig.kmDeslocamento}
+            onChange={(v) => setPlanConfig({ kmDeslocamento: v })}
             max={9999}
           />
-          <Divider />
-          <View style={{
-            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-            paddingVertical: 6,
-          }}>
-            <Text style={{
-              fontFamily: 'Inter_400Regular',
-              fontSize: typography.sizes.md,
-              color: colors.neutral.gray800,
-            }}>Insalubridade</Text>
-            <Toggle
-              value={planConfig.hasInsalubridade}
-              onChange={(v) => setPlanConfig({ hasInsalubridade: v })}
-            />
-          </View>
         </Card>
 
         <SectionLabel style={{ marginTop: 20 }}>Desconto adicional</SectionLabel>
